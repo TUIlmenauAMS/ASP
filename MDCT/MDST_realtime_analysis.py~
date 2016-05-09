@@ -206,20 +206,6 @@ def DCToMatrix(N):
 	      #y(n,k)=cos(pi/N*(k-0.5)*(n-1));
 	return y   
 
-def DSToMatrix(N):
-	#produces an odd DCT matrix with size NxN
-	#Gerald Schuller, Dec. 2015
-
-	import numpy as np
-
-	y=np.zeros((N,N,1));
-
-	for n in range(N):
-	   for k in range(N):
-	      y[n,k,0]=np.sqrt(2.0/N)*np.sin(np.pi/N*(k+0.5)*(n+0.5));
-	      #y(n,k)=cos(pi/N*(k-0.5)*(n-1));
-	return y   
-
 def polmatmult(A,B):
 	#function C=polmatmult(A,B)
 	#multiplies 2 polynomial matrices A and B, where each matrix entry is a polynomial, e.g. in z^-1.

@@ -1,14 +1,12 @@
-#This is a library that implements an MDST filter bank (sine modulation), including a real time implelentation.
+#This is a library that implements a synthesis MDST filter bank (sine modulated), including a real- time implelentation.
 #Obtained from the QMF program by using an MDCT window instead the qmf window.
-#The "main" is an example which reads in an audio .wav file, block-wise, computes the QMF subbands of the 
-#analysis filter bank, then writes them to a python "pickle" file.
+#The "main" is an example, which reads in an python pickle file which contains the subband samples, block-wise, 
+#then computes the synthesis QMF filter bank to reconstruct the audio signal from the subbands, and writes them, block wise, into another audio .wav file. 
 #As such, it can read and process arbitrary long audio files, without memory problems!
-#It has 2 arguments, the input wav file, and the output file, which contains the subband values after 
-#the analysis filter bank
-#example usage: 
-#             python MDST_realtime_analysis.py mixed.wav mixed_mdst_y.bin
+#example call from a terminal window: 
+#        python MDST_realtime_synthesis.py mixed_mdst_y.bin mixed_rek_sin.wav
 #It loads the qmf coefficient file 'MDCTsinwin1024bands.mat'
-#
+# 
 #Implements a real time Pseudo Quandrature Mirror Filter Bank
 #"real time" means: it reads a block of N samples in and generates a block of N spectral samples from the QMF.
 #The QMF implementaion uses internal memory to accomodate the window overlap
@@ -125,28 +123,6 @@ def ha2Fa3d_fast(qmfwin,N):
 	   #print -qmfwin[m*2*N:(m*2*N+N/2)]*((-1)**m)
 	return Fa
 
-def ha2Fa3d_sinmod_fast(qmfwin,N):
-	#usage: Fa=ha2Fa3d_fast(ha,N);
-	#produces the analysis polyphase folding matrix Fa with all polyphase components
-	#in 3D matrix representation
-	#from a basband filter ha with
-	#a cosine modulation
-	#N: Blocklength
-	#using a fast implementation (important for large N)
-	#See my book chapter about "Filter Banks", cosine modulated filter banks.
-	#Gerald Schuller
-	#shl@idmt.fhg.de
-	#Jan-29-16
-
-	Fa=np.zeros((N,N,overlap))
- 	for m in range(overlap/2):
-	   Fa[:,:,2*m]+=np.fliplr(np.diag(np.flipud(qmfwin[m*2*N:(m*2*N+N/2)]*((-1)**m)),k=-N/2))
-	   Fa[:,:,2*m]+=(np.diag(np.flipud(qmfwin[m*2*N+N/2:(m*2*N+N)]*((-1)**m)),k=N/2))
-	   Fa[:,:,2*m+1]+=(np.diag(np.flipud(qmfwin[m*2*N+N:(m*2*N+1.5*N)]*((-1)**m)),k=-N/2))
-	   Fa[:,:,2*m+1]+=np.fliplr(np.diag(np.flipud(-qmfwin[m*2*N+1.5*N:(m*2*N+2*N)]*((-1)**m)),k=N/2))
-	   #print -qmfwin[m*2*N:(m*2*N+N/2)]*((-1)**m)
-	return Fa
-
 def hs2Fs3d_fast(qmfwin,N):
 	#usage: Fs=hs2Fs3d_fast(hs,N);
 	#produces the synthesis polyphase folding matrix Fs with all polyphase components
@@ -174,6 +150,51 @@ def hs2Fs3d_fast(qmfwin,N):
 	#avoid sign change after reconstruction:
 	return -Fs
 
+def hs2Fs3d_sinmod_fast(qmfwin,N):
+	#usage: Fs=hs2Fs3d_fast(hs,N);
+	#produces the synthesis polyphase folding matrix Fs with all polyphase components
+	#in 3D matrix representation
+	#from a basband filter ha with
+	#a cosine modulation
+	#N: Blocklength
+	#Fast implementation
+	#Gerald Schuller
+	#shl@idmt.fhg.de
+	#Jan-29-15
+
+	#Fa=ha2Fa3d_fast(hs,N)
+	#print "Fa.shape in hs2Fs : ", Fa.shape
+	#Transpose first two dimensions to obtain synthesis folding matrix:
+	#Fs=np.transpose(Fa, (1, 0, 2))
+	global overlap
+	Fs=np.zeros((N,N,overlap))
+ 	for m in range(overlap/2):
+	   Fs[:,:,2*m]+=np.fliplr(np.diag(np.flipud(-qmfwin[m*2*N:(m*2*N+N/2)]*((-1)**m)),k=N/2))
+	   Fs[:,:,2*m]+=(np.diag((qmfwin[m*2*N+N/2:(m*2*N+N)]*((-1)**m)),k=N/2))
+	   Fs[:,:,2*m+1]+=(np.diag((qmfwin[m*2*N+N:(m*2*N+1.5*N)]*((-1)**m)),k=-N/2))
+	   Fs[:,:,2*m+1]+=np.fliplr(np.diag(np.flipud(qmfwin[m*2*N+1.5*N:(m*2*N+2*N)]*((-1)**m)),k=-N/2))
+	#print "Fs.shape in hs2Fs : ", Fs.shape
+	#avoid sign change after reconstruction:
+	return -Fs
+
+def hs2Fs3d_sinmod(hs,N):
+	#usage: Fs=hs2Fs3d(hs,N);
+	#produces the synthesis polyphase folding matrix Fs with all polyphase components
+	#in 3D matrix representation
+	#from a basband filter ha with
+	#a cosine modulation
+	#N: Blocklength
+	#Gerald Schuller
+	#shl@idmt.fhg.de
+	#Dec-2-15
+
+	Ps=hs2Ps3d(hs,N);
+	Fs=polmatmult(DSToMatrix(N),Ps)
+        #round zeroth polyphase component to 7 decimals after point:
+        Fs=np.around(Fs,8)
+
+	return Fs
+
 def hs2Fs3d(hs,N):
 	#usage: Fs=hs2Fs3d(hs,N);
 	#produces the synthesis polyphase folding matrix Fs with all polyphase components
@@ -192,6 +213,7 @@ def hs2Fs3d(hs,N):
 
 	return Fs
 
+
 def DCToMatrix(N):
 	#produces an odd DCT matrix with size NxN
 	#Gerald Schuller, Dec. 2015
@@ -203,20 +225,6 @@ def DCToMatrix(N):
 	for n in range(N):
 	   for k in range(N):
 	      y[n,k,0]=np.sqrt(2.0/N)*np.cos(np.pi/N*(k+0.5)*(n+0.5));
-	      #y(n,k)=cos(pi/N*(k-0.5)*(n-1));
-	return y   
-
-def DSToMatrix(N):
-	#produces an odd DCT matrix with size NxN
-	#Gerald Schuller, Dec. 2015
-
-	import numpy as np
-
-	y=np.zeros((N,N,1));
-
-	for n in range(N):
-	   for k in range(N):
-	      y[n,k,0]=np.sqrt(2.0/N)*np.sin(np.pi/N*(k+0.5)*(n+0.5));
 	      #y(n,k)=cos(pi/N*(k-0.5)*(n-1));
 	return y   
 
@@ -357,29 +365,6 @@ def analysisqmf_realtime(xrt,Fa,N):
 	y=DCT4(y)
 	return y
 
-def analysisqmf_sinmod_realtime(xrt,Fa,N):
-	#computes the QMF subband samples for each real time input block xrt. 
-	#Conducts an implicit polynomial multiplication with folding matrix Fa of 
-	#the polyphase matrix of the QMF filter bank, using
-	#internal memory of the past input blocks.
-
-	#from scipy import sparse
-        global blockmemory
-	global overlap
-	#push down old blocks:
-	blockmemory[0:(overlap-1),:]=blockmemory[1:(overlap),:]
-	#write new block into top of memory stack:
-	blockmemory[overlap-1,:]=xrt;
-    	y=np.zeros((1,N));
-        #print "Fa.shape =", Fa.shape
-	for m in range(overlap):
-   	   y+=np.dot(np.array([blockmemory[overlap-1-m,:]]), Fa[:,:,m])
-	   #y+= (sparse.csr_matrix(blockmemory[overlap-1-m,:]).dot(sparse.csr_matrix(Fa[:,:,m]))).todense()
-	#fast DCT4:
-	y=DST4(y)
-	return y
-
-
 def synthesisqmf_realtime(y,Fs,N):
 	#computes the inverse QMF for each subband block y, 
 	#conducts an implicit polynomial multiplication with synthesis folding matrix Fs 
@@ -404,6 +389,32 @@ def synthesisqmf_realtime(y,Fs,N):
 	
 	
 	return xrek
+
+def synthesisqmf_sinmod_realtime(y,Fs,N):
+	#computes the inverse QMF for each subband block y, 
+	#conducts an implicit polynomial multiplication with synthesis folding matrix Fs 
+	#of the synthesis polyphase matrix of the QMF filter bank, using
+	#internal memory for future output blocks.
+
+	#from scipy import sparse
+        global blockmemorysyn
+	global overlap
+	#print "overlap= ", overlap
+	#push down old blocks:
+	blockmemorysyn[0:(overlap-1),:]=blockmemorysyn[1:(overlap),:]
+	blockmemorysyn[overlap-1,:]=np.zeros((1,N)) #avoid leaving previous values in top of memory.
+	#print "memory content synthesis: ", np.sum(np.abs(blockmemorysyn))
+        #print "Fs.shape =", Fs.shape
+	#print "y.shape= ", y.shape
+	#Overlap-add after fast (inverse) DCT4::
+	for m in range(overlap):
+   	   blockmemorysyn[m,:]+=np.dot(DST4(y), Fs[:,:,m])
+	   #y+= (sparse.csr_matrix(blockmemory[overlap-1-m,:]).dot(sparse.csr_matrix(Fa[:,:,m]))).todense()
+   	xrek=blockmemorysyn[0,:]
+	
+	
+	return xrek
+
 
 def synthesisqmf(y,qmfwin,N):
 	#QMF Synthesis filter bank
@@ -544,49 +555,56 @@ if __name__ == '__main__':
 	import cPickle as pickle
 	import sys
 
+	nchan=1 #number of channels, mono
+	bytes=2 #number of bytes per sample
+	rate=44100 #sample rate
+	
 	#qmfrt_example()
 	
 	#global N  #number of subbands
    	#global overlap 
 	if len(sys.argv) < 3:
-	    print("Need 2 arguments.\n\nUsage: %s infile.wav outfile.bin" % sys.argv[0])
+	    print("Need 2 arguments.\n\nUsage: %s infile.bin outfile.wav" % sys.argv[0])
  	    sys.exit(-1)
 
 	qmfwin=np.loadtxt('MDCTsinwin1024bands.mat');
 	#qmfwin=np.hstack((qmfwin,np.flipud(qmfwin)))
 	plt.plot(qmfwin)
 	plt.show(block=False)
-	#Analysis Folding matrix:
-	#Fa=ha2Fa3d_fast(qmfwin,N)
-	Fa=ha2Fa3d_sinmod_fast(qmfwin,N)
+	
+	#Synthesis Folding matrix: 
+	#Fs=hs2Fs3d_fast(qmfwin,N)
+	Fs=hs2Fs3d_sinmod_fast(qmfwin,N)
 
-	#Open sound file to read:
-   	wf=wave.open(sys.argv[1],'rb');
-   	nchan=wf.getnchannels();
-   	bytes=wf.getsampwidth();
-   	rate=wf.getframerate();
-   	length=wf.getnframes();
+	#Open pickle file to read:	
+	wf=open(sys.argv[1], 'r')
+   	
    	print("Number of channels: ", nchan);
    	print("Number of bytes per sample:", bytes);
    	print("Sampling rate: ", rate);
-   	print("Number of samples:", length);
 
-	#open pickle file to write the subband samples:
-	wfw=open(sys.argv[2], 'w')
+	#open sound file to write the reconstruced sound:
+	wfw = wave.open(sys.argv[2], 'wb')
+   	wfw.setnchannels(nchan)
+   	wfw.setsampwidth(bytes)
+   	wfw.setframerate(rate)
 
 	print "Start QMF:"
 	#Process the audio signal block-wise (N samples) from file and into file:
-	for m in range(length/N):
+	m=0
+	while True:
 	   print "Block number: ", m
-	   #Analysis:
-	   data=wf.readframes(N);
-	   x = (struct.unpack( 'h' * N, data ));
-	   #y=analysisqmf_realtime(x,Fa,N)
-	   y=analysisqmf_sinmod_realtime(x,Fa,N)
-	   plt.plot(y)
-	   plt.show(block=False)
-	   pickle.dump(y,wfw)
-
+	   m+=1
+	   #Synthesis:
+	   try:
+	      y=pickle.load(wf)
+	   except (EOFError):
+              break
+	   #xrek=synthesisqmf_realtime(y,Fs,N)
+	   xrek=synthesisqmf_sinmod_realtime(y,Fs,N)
+	   #write with 2 Bytes per sample:
+	   data=struct.pack( 'h' * N, *xrek )
+	   wfw.writeframes(data)
 	wf.close()   	
 	wfw.close()
 	
