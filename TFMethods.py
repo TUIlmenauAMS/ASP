@@ -743,6 +743,8 @@ class WDODisjointness:
     - Dimitrios Giannoulis, Daniele Barchiesi, Anssi Klapuri, and Mark D. Plumbley. "On the disjointness of sources
     in music using different time-frequency representations", in Proceedings of the IEEE Workshop on Applications of
     Signal Processing to Audio and Acoustics (WASPAA), 2011.
+
+    In addition to this, measures of sparsity (l1/l2 norms) are provided.
     """
 
     @staticmethod
@@ -788,6 +790,18 @@ class WDODisjointness:
                 (float) WDO Measure
         """
         return PSR - ((PSR + eps)/(SIR + eps))
+
+    @staticmethod
+    def l1l2_sparsity_measure(mX):
+        """ Method to compute the sparsity of a given time-frequency representation.
+            Args:
+                mX    : (2D Array)  Time-frequency decomposition of a mixture signal.
+
+            Returns:
+                (float) Sparsity Measure
+        """
+
+        return np.sum(np.abs((mX + eps) / ((np.sqrt(np.sum(mX ** 2.))) + eps)))
 
 if __name__ == "__main__":
 
