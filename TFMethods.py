@@ -121,9 +121,14 @@ class TimeFrequencyDecomposition:
         # Initialize sound pointers
         pin = 0
         pend = x.size - wsz
+        indx = 0
 
         # Normalise windowing function
         w = w / sum(w)
+
+        # Initialize storing matrix
+        xmX = np.empty((len(x)/hop, N/2 + 1))
+        xpX = np.empty((len(x)/hop, N/2 + 1))
 
         # Analysis Loop
         while pin <= pend:
@@ -133,15 +138,12 @@ class TimeFrequencyDecomposition:
             # Perform DFT on segment
             mcX, pcX = TimeFrequencyDecomposition.DFT(xSeg, w, N)
 
-            # If it is the first frame, initialize the stacked array with current spectrum.
-            # Else stack the current frame directly.
-            if pin == 0:
-                xmX = np.array([mcX])
-                xpX = np.array([pcX])
-            else:
-                xmX = np.vstack((xmX,np.array([mcX])))
-                xpX = np.vstack((xpX,np.array([pcX])))
+            xmX[indx, :] = mcX
+            xpX[indx, :] = pcX
+
+            # Update pointers and indices
             pin += hop
+            indx += 1
 
         return xmX, xpX
 
@@ -786,7 +788,6 @@ class WDODisjointness:
                 (float) WDO Measure
         """
         return PSR - ((PSR + eps)/(SIR + eps))
-
 
 if __name__ == "__main__":
 
