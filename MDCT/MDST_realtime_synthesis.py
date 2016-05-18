@@ -177,24 +177,6 @@ def hs2Fs3d_sinmod_fast(qmfwin,N):
 	#avoid sign change after reconstruction:
 	return -Fs
 
-def hs2Fs3d_sinmod(hs,N):
-	#usage: Fs=hs2Fs3d(hs,N);
-	#produces the synthesis polyphase folding matrix Fs with all polyphase components
-	#in 3D matrix representation
-	#from a basband filter ha with
-	#a cosine modulation
-	#N: Blocklength
-	#Gerald Schuller
-	#shl@idmt.fhg.de
-	#Dec-2-15
-
-	Ps=hs2Ps3d(hs,N);
-	Fs=polmatmult(DSToMatrix(N),Ps)
-        #round zeroth polyphase component to 7 decimals after point:
-        Fs=np.around(Fs,8)
-
-	return Fs
-
 def hs2Fs3d(hs,N):
 	#usage: Fs=hs2Fs3d(hs,N);
 	#produces the synthesis polyphase folding matrix Fs with all polyphase components
@@ -213,7 +195,6 @@ def hs2Fs3d(hs,N):
 
 	return Fs
 
-
 def DCToMatrix(N):
 	#produces an odd DCT matrix with size NxN
 	#Gerald Schuller, Dec. 2015
@@ -225,20 +206,6 @@ def DCToMatrix(N):
 	for n in range(N):
 	   for k in range(N):
 	      y[n,k,0]=np.sqrt(2.0/N)*np.cos(np.pi/N*(k+0.5)*(n+0.5));
-	      #y(n,k)=cos(pi/N*(k-0.5)*(n-1));
-	return y   
-
-def DSToMatrix(N):
-	#produces an odd DCT matrix with size NxN
-	#Gerald Schuller, Dec. 2015
-
-	import numpy as np
-
-	y=np.zeros((N,N,1));
-
-	for n in range(N):
-	   for k in range(N):
-	      y[n,k,0]=np.sqrt(2.0/N)*np.sin(np.pi/N*(k+0.5)*(n+0.5));
 	      #y(n,k)=cos(pi/N*(k-0.5)*(n-1));
 	return y   
 

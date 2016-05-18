@@ -7,6 +7,11 @@ import numpy as np
 from scipy.fftpack import fft, ifft, dct, dst
 from scipy.signal import hilbert
 
+<<<<<<< HEAD
+=======
+eps = np.finfo(np.double).tiny
+
+>>>>>>> 19d667df9468c21909d0f934c13932373fdc007b
 class TimeFrequencyDecomposition:
     """ A Class that performs time-frequency decompositions by means of a
         Discrete Fourier Transform, using Fast Fourier Transform algorithm
@@ -119,10 +124,21 @@ class TimeFrequencyDecomposition:
         # Initialize sound pointers
         pin = 0
         pend = x.size - wsz
+<<<<<<< HEAD
+=======
+        indx = 0
+>>>>>>> 19d667df9468c21909d0f934c13932373fdc007b
 
         # Normalise windowing function
         w = w / sum(w)
 
+<<<<<<< HEAD
+=======
+        # Initialize storing matrix
+        xmX = np.empty((len(x)/hop, N/2 + 1))
+        xpX = np.empty((len(x)/hop, N/2 + 1))
+
+>>>>>>> 19d667df9468c21909d0f934c13932373fdc007b
         # Analysis Loop
         while pin <= pend:
             # Acquire Segment
@@ -131,6 +147,7 @@ class TimeFrequencyDecomposition:
             # Perform DFT on segment
             mcX, pcX = TimeFrequencyDecomposition.DFT(xSeg, w, N)
 
+<<<<<<< HEAD
             # If it is the first frame, initialize the stacked array with current spectrum.
             # Else stack the current frame directly.
             if pin == 0:
@@ -140,6 +157,14 @@ class TimeFrequencyDecomposition:
                 xmX = np.vstack((xmX,np.array([mcX])))
                 xpX = np.vstack((xpX,np.array([pcX])))
             pin += hop
+=======
+            xmX[indx, :] = mcX
+            xpX[indx, :] = pcX
+
+            # Update pointers and indices
+            pin += hop
+            indx += 1
+>>>>>>> 19d667df9468c21909d0f934c13932373fdc007b
 
         return xmX, xpX
 
@@ -729,6 +754,79 @@ class BarkScaling:
         MNR = 20. * np.log10((np.dot(np.dot(Err, self.W[:, :self.nfreqs].T), self.W_inv.T)).mean())
         return MNR
 
+<<<<<<< HEAD
+=======
+class WDODisjointness:
+    """ A Class that measures the disjointness of a Time-frequency decomposition
+    given the true and estimated signals. As appears in :
+    - O. Yılmaz and S. Rickard, “Blind separation of speech mixtures
+    via time-frequency masking,” IEEE Trans. on Signal Processing, vol. 52, no. 7, pp. 1830–1847, Jul. 2004.
+    - J.J. Burred, "From Sparse Models to Timbre Learning: New Methods for Musical Source Separation", PhD Thesis,
+    TU Berlin, 2009.
+    - Dimitrios Giannoulis, Daniele Barchiesi, Anssi Klapuri, and Mark D. Plumbley. "On the disjointness of sources
+    in music using different time-frequency representations", in Proceedings of the IEEE Workshop on Applications of
+    Signal Processing to Audio and Acoustics (WASPAA), 2011.
+
+    In addition to this, measures of sparsity (l1/l2 norms) are provided.
+    """
+
+    @staticmethod
+    def PSR(Mask, TrueTarget):
+        """ Method to compute the Preserved-Signal Ratio (PSR) measure.
+            Args:
+                Mask         : 	 (2D array)  Computed Upper Bound Binary Mask to
+                                             estimate the target source.
+                TrueTarget   :   (2D array)  Computed Time-Frequency decomposition
+                                             of target source to be separated.
+        Returns:
+                (float) Ratio of the squared Frobenious norms of each quantity.
+        """
+        num = ((np.sqrt(np.sum((Mask * TrueTarget) ** 2.))) ** 2.) + eps
+        denum = ((np.sqrt(np.sum(TrueTarget ** 2.))) ** 2.) + eps
+        return num/denum
+
+    @staticmethod
+    def SIR(Mask, TrueTarget, InterferingSources):
+        """ Method to compute the Signal to Interference Ratio(SIR) measure.
+            Args:
+                Mask                 : 	 (2D array)  Computed Upper Bound Binary Mask to
+                                                     estimate the target source.
+                TrueTarget           :   (2D array)  Computed Time-Frequency decomposition
+                                                     of target source to be separated.
+                InterferingSources   :   (2D array)  Computed Time-Frequency decomposition
+                                                     of interfering sources.
+        Returns:
+                (float) Ratio of the squared Frobenious norms of each quantity.
+        """
+        num = ((np.sqrt(np.sum( (Mask * TrueTarget) ** 2.))) ** 2.) + eps
+        denum = ((np.sqrt(np.sum( (Mask * InterferingSources) ** 2.))) ** 2.) + eps
+        return num/denum
+
+    @staticmethod
+    def WDO(PSR, SIR):
+        """ Method to compute the objective W-Disjoint Orthogonality(WDO) measure.
+            Args:
+                PSR   : (float)  Computed Preserved-Signal Ratio (PSR) measure.
+                SIR   : (float)  Signal to Interference Ratio(SIR) measure.
+
+            Returns:
+                (float) WDO Measure
+        """
+        return PSR - ((PSR + eps)/(SIR + eps))
+
+    @staticmethod
+    def l1l2_sparsity_measure(mX):
+        """ Method to compute the sparsity of a given time-frequency representation.
+            Args:
+                mX    : (2D Array)  Time-frequency decomposition of a mixture signal.
+
+            Returns:
+                (float) Sparsity Measure
+        """
+
+        return np.sum(np.abs((mX + eps) / ((np.sqrt(np.sum(mX ** 2.))) + eps)))
+
+>>>>>>> 19d667df9468c21909d0f934c13932373fdc007b
 if __name__ == "__main__":
 
     # Test
