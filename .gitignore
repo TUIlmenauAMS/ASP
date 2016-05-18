@@ -16,3 +16,4 @@ Thumbs.db
 *.md~
 __pycache__/
 *.py[cod]
+*.bin
