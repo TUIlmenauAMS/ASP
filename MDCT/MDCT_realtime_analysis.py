@@ -17,6 +17,7 @@
 import numpy as np
 import scipy.fftpack as spfft
 
+
 N=1024  #number of subbands of the QMF filter bank
 #N=64
 #internal memory for the input blocks, for 8 times overlap:
@@ -465,12 +466,16 @@ def qmfrt_example():
 
 if __name__ == '__main__':
 
-        import IOMethods as io
+        #import IOMethods as io
 	import matplotlib.pyplot as plt
 	import wave
 	import struct
 	import cPickle as pickle
 	import sys
+        import os
+
+	# Current directory
+        current_dir = os.path.dirname(os.path.realpath(__file__))
 
 	#qmfrt_example()
 	
@@ -480,7 +485,7 @@ if __name__ == '__main__':
 	    print("Need 2 arguments.\n\nUsage: %s infile.wav outfile.bin" % sys.argv[0])
  	    sys.exit(-1)
 
-	qmfwin=np.loadtxt('MDCTsinwin1024bands.mat');
+	qmfwin=np.loadtxt(os.path.join(current_dir,'MDCTsinwin1024bands.mat'));
 	#qmfwin=np.hstack((qmfwin,np.flipud(qmfwin)))
 	plt.plot(qmfwin)
 	plt.show(block=False)

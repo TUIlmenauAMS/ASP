@@ -81,6 +81,34 @@ def hs2Ps3d(hs,N):
 
 	return Ps
 
+def hs2Ps3d_sinmod(hs,N):
+	#usage: Ps=hs2Ps3d(hs,N);
+	#produces the synthesis polyphase matrix Ps
+	#in 3D matrix representation
+	#from a basband filter hs with
+	#a cosine modulation
+	#N: Blocklength
+	#Gerald Schuller
+	#shl@idmt.fhg.de
+	#Dec-2-15
+
+	import numpy as np
+
+	L=len(hs);
+
+	blocks=int(np.ceil(L/N));
+        #print(blocks)
+
+	Ps=np.zeros((N,N,blocks));
+
+	for k in range(N): #subband
+	  for m in range(blocks):  #m: block number 
+	    for nphase in range(N): #nphase: Phase 
+	      n=m*N+nphase;
+	      #synthesis:
+	      Ps[k,nphase,m]=hs[n]*np.sqrt(2.0/N)*np.sin(np.pi/N*(k+0.5)*(n-N/2.0+0.5)); 
+
+	return Ps
 
 def ha2Fa3d(ha,N):
 	#usage: Fa=ha2Fa3d(ha,N);
@@ -177,6 +205,24 @@ def hs2Fs3d_sinmod_fast(qmfwin,N):
 	#avoid sign change after reconstruction:
 	return -Fs
 
+def hs2Fs3d_sinmod(hs,N):
+	#usage: Fs=hs2Fs3d(hs,N);
+	#produces the synthesis polyphase folding matrix Fs with all polyphase components
+	#in 3D matrix representation
+	#from a basband filter ha with
+	#a cosine modulation
+	#N: Blocklength
+	#Gerald Schuller
+	#shl@idmt.fhg.de
+	#Dec-2-15
+
+	Ps=hs2Ps3d(hs,N);
+	Fs=polmatmult(DSToMatrix(N),Ps)
+        #round zeroth polyphase component to 7 decimals after point:
+        Fs=np.around(Fs,8)
+
+	return Fs
+
 def hs2Fs3d(hs,N):
 	#usage: Fs=hs2Fs3d(hs,N);
 	#produces the synthesis polyphase folding matrix Fs with all polyphase components
@@ -195,6 +241,26 @@ def hs2Fs3d(hs,N):
 
 	return Fs
 
+
+def hs2Fs3d_sinmod(hs,N):
+	#usage: Fs=hs2Fs3d(hs,N);
+	#produces the synthesis polyphase folding matrix Fs with all polyphase components
+	#in 3D matrix representation
+	#from a basband filter ha with
+	#a cosine modulation
+	#N: Blocklength
+	#Gerald Schuller
+	#shl@idmt.fhg.de
+	#May-9-16
+
+	Ps=hs2Ps3d_sinmod(hs,N);
+	Fs=polmatmult(DSToMatrix(N),Ps)
+        #round zeroth polyphase component to 7 decimals after point:
+        Fs=np.around(Fs,8)
+
+	return Fs
+
+
 def DCToMatrix(N):
 	#produces an odd DCT matrix with size NxN
 	#Gerald Schuller, Dec. 2015
@@ -208,6 +274,21 @@ def DCToMatrix(N):
 	      y[n,k,0]=np.sqrt(2.0/N)*np.cos(np.pi/N*(k+0.5)*(n+0.5));
 	      #y(n,k)=cos(pi/N*(k-0.5)*(n-1));
 	return y   
+
+def DSToMatrix(N):
+	#produces an odd DCT matrix with size NxN
+	#Gerald Schuller, May. 2016
+
+	import numpy as np
+
+	y=np.zeros((N,N));
+
+	for n in range(N):
+	   for k in range(N):
+	      y[n,k]=np.sqrt(2.0/N)*np.sin(np.pi/N*(k+0.5)*(n+0.5));
+	      #y(n,k)=cos(pi/N*(k-0.5)*(n-1));
+	return y   
+
 
 def polmatmult(A,B):
 	#function C=polmatmult(A,B)
@@ -251,7 +332,7 @@ def DST4(samples):
    samplesup=np.zeros(2*N)
    #upsample signal:
    #reverse order to obtain DST4 out of DCT4:
-   samplesup[1::2]=np.flipud(samples)
+   samplesup[1::2]=np.fliplr(samples)
    y=spfft.dct(samplesup,type=3,norm='ortho')*np.sqrt(2)#/2
    #flip sign of every 2nd subband to obtain DST4 out of DCT4
    y=(y[0:N])*(((-1)*np.ones(N))**range(N))
@@ -388,8 +469,14 @@ def synthesisqmf_sinmod_realtime(y,Fs,N):
         #print "Fs.shape =", Fs.shape
 	#print "y.shape= ", y.shape
 	#Overlap-add after fast (inverse) DCT4::
+	#D=DSToMatrix(N)
+	y=np.matrix(y)
+	print "y.shape= ", y.shape
 	for m in range(overlap):
-   	   blockmemorysyn[m,:]+=np.dot(DST4(y), Fs[:,:,m])
+   	   blockmemorysyn[m,:]+=np.transpose(np.dot(DST4(y), Fs[:,:,m]))
+	   #y=np.dot(y,D)
+	   #print y.shape
+	   #blockmemorysyn[m,:]+=np.transpose(np.dot(y, Fs[:,:,m]))
 	   #y+= (sparse.csr_matrix(blockmemory[overlap-1-m,:]).dot(sparse.csr_matrix(Fa[:,:,m]))).todense()
    	xrek=blockmemorysyn[0,:]
 	
@@ -529,12 +616,16 @@ def qmfrt_example():
 
 if __name__ == '__main__':
 
-        import IOMethods as io
+        #import IOMethods as io
 	import matplotlib.pyplot as plt
 	import wave
 	import struct
 	import cPickle as pickle
 	import sys
+        import os
+
+	# Current directory
+        current_dir = os.path.dirname(os.path.realpath(__file__))
 
 	nchan=1 #number of channels, mono
 	bytes=2 #number of bytes per sample
@@ -548,7 +639,8 @@ if __name__ == '__main__':
 	    print("Need 2 arguments.\n\nUsage: %s infile.bin outfile.wav" % sys.argv[0])
  	    sys.exit(-1)
 
-	qmfwin=np.loadtxt('MDCTsinwin1024bands.mat');
+	qmfwin=np.loadtxt(os.path.join(current_dir,'MDCTsinwin1024bands.mat'));
+	#qmfwin=np.loadtxt('qmf1024_8x.mat')
 	#qmfwin=np.hstack((qmfwin,np.flipud(qmfwin)))
 	plt.plot(qmfwin)
 	plt.show(block=False)

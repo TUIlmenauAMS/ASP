@@ -7,11 +7,8 @@ import numpy as np
 from scipy.fftpack import fft, ifft, dct, dst
 from scipy.signal import hilbert
 
-<<<<<<< HEAD
-=======
 eps = np.finfo(np.double).tiny
 
->>>>>>> 19d667df9468c21909d0f934c13932373fdc007b
 class TimeFrequencyDecomposition:
     """ A Class that performs time-frequency decompositions by means of a
         Discrete Fourier Transform, using Fast Fourier Transform algorithm
@@ -124,21 +121,15 @@ class TimeFrequencyDecomposition:
         # Initialize sound pointers
         pin = 0
         pend = x.size - wsz
-<<<<<<< HEAD
-=======
         indx = 0
->>>>>>> 19d667df9468c21909d0f934c13932373fdc007b
 
         # Normalise windowing function
         w = w / sum(w)
 
-<<<<<<< HEAD
-=======
         # Initialize storing matrix
         xmX = np.empty((len(x)/hop, N/2 + 1))
         xpX = np.empty((len(x)/hop, N/2 + 1))
 
->>>>>>> 19d667df9468c21909d0f934c13932373fdc007b
         # Analysis Loop
         while pin <= pend:
             # Acquire Segment
@@ -147,24 +138,12 @@ class TimeFrequencyDecomposition:
             # Perform DFT on segment
             mcX, pcX = TimeFrequencyDecomposition.DFT(xSeg, w, N)
 
-<<<<<<< HEAD
-            # If it is the first frame, initialize the stacked array with current spectrum.
-            # Else stack the current frame directly.
-            if pin == 0:
-                xmX = np.array([mcX])
-                xpX = np.array([pcX])
-            else:
-                xmX = np.vstack((xmX,np.array([mcX])))
-                xpX = np.vstack((xpX,np.array([pcX])))
-            pin += hop
-=======
             xmX[indx, :] = mcX
             xpX[indx, :] = pcX
 
             # Update pointers and indices
             pin += hop
             indx += 1
->>>>>>> 19d667df9468c21909d0f934c13932373fdc007b
 
         return xmX, xpX
 
@@ -754,8 +733,6 @@ class BarkScaling:
         MNR = 20. * np.log10((np.dot(np.dot(Err, self.W[:, :self.nfreqs].T), self.W_inv.T)).mean())
         return MNR
 
-<<<<<<< HEAD
-=======
 class WDODisjointness:
     """ A Class that measures the disjointness of a Time-frequency decomposition
     given the true and estimated signals. As appears in :
@@ -826,7 +803,6 @@ class WDODisjointness:
 
         return np.sum(np.abs((mX + eps) / ((np.sqrt(np.sum(mX ** 2.))) + eps)))
 
->>>>>>> 19d667df9468c21909d0f934c13932373fdc007b
 if __name__ == "__main__":
 
     # Test

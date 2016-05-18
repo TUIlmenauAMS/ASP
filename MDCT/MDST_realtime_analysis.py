@@ -25,6 +25,7 @@ overlap=2;
 blockmemory=np.zeros((overlap,N))
 blockmemorysyn=np.zeros((overlap,N))
 
+
 def ha2Pa3d(ha,N):
 	#usage: Pa=ha2Pa3d(ha,N);
 	#produces the analysis polyphase matrix Pa
@@ -51,6 +52,35 @@ def ha2Pa3d(ha,N):
 	      n=m*N+nphase;
 	      #indexing like impulse response, phase index is reversed (N-np):
 	      Pa[N-1-nphase,k,m]=ha[n]*np.sqrt(2.0/N)*np.cos(np.pi/N*(k+0.5)*(blocks*N-1-n-N/2.0+0.5)); 
+
+	return Pa
+
+def ha2Pa3d_sinmod(ha,N):
+	#usage: Pa=ha2Pa3d(ha,N);
+	#produces the analysis polyphase matrix Pa
+	#in 3D matrix representation
+	#from a basband filter ha with
+	#a cosine modulation
+	#N: Blocklength
+	#Gerald Schuller
+	#shl@idmt.fhg.de
+	#Dec-2-15
+
+	import numpy as np
+
+	L=len(ha);
+
+	blocks=int(np.ceil(L/N));
+        #print(blocks)
+
+	Pa=np.zeros((N,N,blocks));
+
+	for k in range(N): #subband
+	  for m in range(blocks):  #m: block number 
+	    for nphase in range(N): #nphase: Phase 
+	      n=m*N+nphase;
+	      #indexing like impulse response, phase index is reversed (N-np):
+	      Pa[N-1-nphase,k,m]=ha[n]*np.sqrt(2.0/N)*np.sin(np.pi/N*(k+0.5)*(blocks*N-1-n-N/2.0+0.5)); 
 
 	return Pa
 
@@ -102,6 +132,26 @@ def ha2Fa3d(ha,N):
         Fa=np.around(Fa,8)
 
 	return Fa
+
+def ha2Fa3d_sinmod(ha,N):
+	#usage: Fa=ha2Fa3d(ha,N);
+	#produces the analysis polyphase folding matrix Fa with all polyphase components
+	#in 3D matrix representation
+	#from a basband filter ha with
+	#a cosine modulation
+	#N: Blocklength
+	#Gerald Schuller
+	#shl@idmt.fhg.de
+	#Dec-2-15
+	print "ha2Pa3d:"
+	Pa=ha2Pa3d_sinmod(ha,N);
+	print "polmatmult DST:"
+	Fa=polmatmult(Pa,DSToMatrix(N))
+        #round zeroth polyphase component to 7 decimals after point:
+        Fa=np.around(Fa,8)
+
+	return Fa
+
 
 def ha2Fa3d_fast(qmfwin,N):
 	#usage: Fa=ha2Fa3d_fast(ha,N);
@@ -206,6 +256,22 @@ def DCToMatrix(N):
 	      #y(n,k)=cos(pi/N*(k-0.5)*(n-1));
 	return y   
 
+def DSToMatrix(N):
+	#produces an odd DCT matrix with size NxN
+	#Gerald Schuller, May. 2016
+
+	import numpy as np
+
+	y=np.zeros((N,N));
+
+	for n in range(N):
+	   for k in range(N):
+	      y[n,k]=np.sqrt(2.0/N)*np.sin(np.pi/N*(k+0.5)*(n+0.5));
+	      #y(n,k)=cos(pi/N*(k-0.5)*(n-1));
+	return y   
+
+
+
 def polmatmult(A,B):
 	#function C=polmatmult(A,B)
 	#multiplies 2 polynomial matrices A and B, where each matrix entry is a polynomial, e.g. in z^-1.
@@ -248,7 +314,7 @@ def DST4(samples):
    samplesup=np.zeros(2*N)
    #upsample signal:
    #reverse order to obtain DST4 out of DCT4:
-   samplesup[1::2]=np.flipud(samples)
+   samplesup[1::2]=np.fliplr(samples)
    y=spfft.dct(samplesup,type=3,norm='ortho')*np.sqrt(2)#/2
    #flip sign of every 2nd subband to obtain DST4 out of DCT4
    y=(y[0:N])*(((-1)*np.ones(N))**range(N))
@@ -362,7 +428,15 @@ def analysisqmf_sinmod_realtime(xrt,Fa,N):
    	   y+=np.dot(np.array([blockmemory[overlap-1-m,:]]), Fa[:,:,m])
 	   #y+= (sparse.csr_matrix(blockmemory[overlap-1-m,:]).dot(sparse.csr_matrix(Fa[:,:,m]))).todense()
 	#fast DCT4:
+	print "y.shape", y.shape
 	y=DST4(y)
+	#D=DSToMatrix(N)
+	#print D.shape
+	#print y.shape
+	#y=np.dot(y,D)
+	#print y.shape
+      	#y=y[0,:]
+	print y.shape
 	return y
 
 
@@ -523,13 +597,16 @@ def qmfrt_example():
 
 if __name__ == '__main__':
 
-        import IOMethods as io
+        #import IOMethods as io
 	import matplotlib.pyplot as plt
 	import wave
 	import struct
 	import cPickle as pickle
 	import sys
+        import os
 
+	# Current directory
+        current_dir = os.path.dirname(os.path.realpath(__file__))
 	#qmfrt_example()
 	
 	#global N  #number of subbands
@@ -538,13 +615,14 @@ if __name__ == '__main__':
 	    print("Need 2 arguments.\n\nUsage: %s infile.wav outfile.bin" % sys.argv[0])
  	    sys.exit(-1)
 
-	qmfwin=np.loadtxt('MDCTsinwin1024bands.mat');
+	qmfwin=np.loadtxt(os.path.join(current_dir,'MDCTsinwin1024bands.mat'));
 	#qmfwin=np.hstack((qmfwin,np.flipud(qmfwin)))
 	plt.plot(qmfwin)
 	plt.show(block=False)
 	#Analysis Folding matrix:
 	#Fa=ha2Fa3d_fast(qmfwin,N)
 	Fa=ha2Fa3d_sinmod_fast(qmfwin,N)
+	#Fa=ha2Fa3d_sinmod(qmfwin,N)
 
 	#Open sound file to read:
    	wf=wave.open(sys.argv[1],'rb');

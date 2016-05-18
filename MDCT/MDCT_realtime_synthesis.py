@@ -463,12 +463,16 @@ def qmfrt_example():
 
 if __name__ == '__main__':
 
-        import IOMethods as io
+        #import IOMethods as io
 	import matplotlib.pyplot as plt
 	import wave
 	import struct
 	import cPickle as pickle
 	import sys
+        import os
+
+	# Current directory
+        current_dir = os.path.dirname(os.path.realpath(__file__))
 
 	nchan=1 #number of channels, mono
 	bytes=2 #number of bytes per sample
@@ -482,7 +486,7 @@ if __name__ == '__main__':
 	    print("Need 2 arguments.\n\nUsage: %s infile.bin outfile.wav" % sys.argv[0])
  	    sys.exit(-1)
 
-	qmfwin=np.loadtxt('MDCTsinwin1024bands.mat');
+	qmfwin=np.loadtxt(os.path.join(current_dir,'MDCTsinwin1024bands.mat'));
 	#qmfwin=np.hstack((qmfwin,np.flipud(qmfwin)))
 	plt.plot(qmfwin)
 	plt.show(block=False)
