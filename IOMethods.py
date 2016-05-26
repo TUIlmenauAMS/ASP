@@ -347,14 +347,31 @@ class AudioIO:
 			fs:		   (int) The sampling rate
 		"""
 		import pyglet as pg
+		global player
 		# Call the writing function
 		AudioIO.wavWrite(x, fs, 16, 'testPlayback.wav')
 		# Initialize playback engine
+		player = pg.media.Player()
+		# Initialize the object with the audio file
 		playback = pg.media.load('testPlayback.wav')
+		# Set it to player
+		player.queue(playback)
 		# Sound call
-		playback.play()
+		player.play()
 		# Remove the dummy wave write
 		os.remove('testPlayback.wav')
+
+	@staticmethod
+	def stop():
+		""" Stops a playback object of the pyglet library.
+			It does not accept arguments, but a player has to be
+			already initialized by the above "sound" method.
+		"""
+		global player
+		# Just Pause & Destruct
+		player.pause()
+		player = None
+		return None
 
 	@staticmethod
 	def energyNormalisation(x1, x2, wsz = 1024):
