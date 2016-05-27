@@ -342,6 +342,7 @@ class AudioIO:
 	@staticmethod
 	def sound(x,fs):
 		""" Plays a wave file using the pyglet library. But first, it has to be written.
+			Termination of the playback is being performed by any keyboard input and Enter.
 			Args:
 			x: 		   (array) Floating point samples
 			fs:		   (int) The sampling rate
@@ -358,6 +359,10 @@ class AudioIO:
 		player.queue(playback)
 		# Sound call
 		player.play()
+		# Killed by "keyboard"
+		kill = raw_input()
+		if kill or kill == '':
+			AudioIO.stop()
 		# Remove the dummy wave write
 		os.remove('testPlayback.wav')
 
