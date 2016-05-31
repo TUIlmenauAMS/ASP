@@ -11,6 +11,7 @@ import os
 import QMF.qmf_realtime_class as qrf
 from multiprocessing import Process
 import matplotlib.pyplot as plt
+import spams, math
 
 eps = np.finfo(np.double).tiny
 
@@ -307,6 +308,196 @@ def spc_eval_pqmf_complex(alpha, mixKaraoke, vox):
 
     return SPCMix, SPCVox
 
+# OMP
+def OLAnalysis(x, w, N, hop):
+
+    # Analysis Parameters
+    wsz = w.size
+    print(wsz)
+    hw1 = int(math.floor((wsz+1)/2))
+    hw2 = int(math.floor(wsz/2))
+
+    # Add some zeros at the start and end of the signal to avoid window smearing
+    x = np.append(np.zeros(3*hop),x)
+    x = np.append(x, np.zeros(3*hop))
+
+    xol = np.empty((len(x)/hop, N))
+
+    # Initialize sound pointers
+    pin = 0
+
+    pend = x.size - wsz
+
+    indx = 0
+
+    while pin <= pend:
+        xSeg = x[pin:pin+wsz] * w
+        xol[indx, :] = xSeg
+
+        indx += 1
+        pin += hop
+
+    return xol
+def OLAPSynth(xmX, wsz, hop):
+
+    # Acquire half window sizes
+    hw1 = int(math.floor((wsz+1)/2))
+    hw2 = int(math.floor(wsz/2))
+
+    # Acquire the number of STFT frames
+    numFr = xmX.shape[0]
+
+    # Initialise output array with zeros
+    y = np.zeros(numFr * hop + hw1 + hw2)
+
+    # Initialise sound pointer
+    pin = 0
+
+    # Main Synthesis Loop
+    for indx in range(numFr):
+        # Inverse Discrete Fourier Transform
+        ybuffer = xmX[indx, :]
+
+        # Overlap and Add
+        y[pin:pin+wsz] += ybuffer
+
+        # Advance pointer
+        pin += hop
+
+    # Delete the extra zeros that the analysis had placed
+    y = np.delete(y, range(3*hop))
+    y = np.delete(y, range(y.size-(3*hop + 1), y.size))
+
+    return y
+
+def eval_dct_oc(mixKaraoke, vox):
+    # Analysis Parameters
+    N = 1024
+    winsamples = 2 * N
+    win = np.sin(np.pi/(winsamples)*(np.arange(0,winsamples)+0.5))
+
+    # Acquire modulation matrices
+    Cos, _ = TF.TimeFrequencyDecomposition.coreModulation(win, N)
+    Cos = Cos.T
+
+    # Create Dictionary
+    CS2 = np.asfortranarray(Cos, (np.float32))
+
+    # Ovelapped analysis with 50%
+    karmix = np.asfortranarray(OLAnalysis(mixKaraoke, win, winsamples, N).T, np.float32)
+    vox = np.asfortranarray(OLAnalysis(vox, win, winsamples, N).T, np.float32)
+
+    # Acquire coefficients using orthogonal matching pursuit
+    ms = np.asarray(spams.omp(karmix, CS2, 210, 1e-16).todense()).T
+    vs = np.asarray(spams.omp(vox, CS2, 210, 1e-16).todense()).T
+
+    # Compute Upper Bound Binary Mask
+    mask = fm(np.abs(ms + vs), np.abs(vs), np.abs(ms), [], [], alpha = 1., method = 'UBBM')
+
+    # Activate the method to acquire the mask
+    vsf = mask()
+    M = mask._mask
+
+    # Compute the measures used in WDO
+    PSR = TF.WDODisjointness.PSR(M, np.abs(vs))
+    SIR = TF.WDODisjointness.SIR(M, np.abs(vs), np.abs(ms))
+
+    WDO = TF.WDODisjointness.WDO(PSR, SIR)
+
+    return WDO
+
+def eval_dctdst_oc(mixKaraoke, vox):
+    # Analysis Parameters
+    N = 1024
+    winsamples = 2 * N
+    win = np.sin(np.pi/(winsamples)*(np.arange(0,winsamples)+0.5))
+
+    # Acquire modulation matrices
+    Cos, Sin = TF.TimeFrequencyDecomposition.coreModulation(win, N)
+    Cos = Cos.T
+    Sin = Sin.T
+
+    # Create Dictionary
+    CS2 = np.asfortranarray(np.hstack((Cos, Sin)), (np.float32))
+
+    # Ovelapped analysis with 50%
+    karmix = np.asfortranarray(OLAnalysis(mixKaraoke, win, winsamples, N).T, np.float32)
+    vox = np.asfortranarray(OLAnalysis(vox, win, winsamples, N).T, np.float32)
+
+    # Acquire coefficients using orthogonal matching pursuit
+    ms = np.asarray(spams.omp(karmix, CS2, 410, 1e-16).todense()).T
+    vs = np.asarray(spams.omp(vox, CS2, 410, 1e-16).todense()).T
+
+    # Compute Upper Bound Binary Mask
+    mask = fm(np.abs(ms + vs), np.abs(vs), np.abs(ms), [], [], alpha = 1., method = 'UBBM')
+
+    # Activate the method to acquire the mask
+    vsf = mask()
+    M = mask._mask
+
+    # Compute the measures used in WDO
+    PSR = TF.WDODisjointness.PSR(M, np.abs(vs))
+    SIR = TF.WDODisjointness.SIR(M, np.abs(vs), np.abs(ms))
+
+    WDO = TF.WDODisjointness.WDO(PSR, SIR)
+
+    return WDO\
+
+def spc_eval_dct_oc(mixKaraoke, vox):
+    # Analysis Parameters
+    N = 1024
+    winsamples = 2 * N
+    win = np.sin(np.pi/(winsamples)*(np.arange(0,winsamples)+0.5))
+
+    # Acquire modulation matrices
+    Cos, _ = TF.TimeFrequencyDecomposition.coreModulation(win, N)
+    Cos = Cos.T
+
+    # Create Dictionary
+    CS2 = np.asfortranarray(Cos, (np.float32))
+
+    # Ovelapped analysis with 50%
+    karmix = np.asfortranarray(OLAnalysis(mixKaraoke, win, winsamples, N).T, np.float32)
+    vox = np.asfortranarray(OLAnalysis(vox, win, winsamples, N).T, np.float32)
+
+    # Acquire coefficients using orthogonal matching pursuit
+    ms = np.asarray(spams.omp(karmix, CS2, 210, 1e-16).todense()).T
+    vs = np.asarray(spams.omp(vox, CS2, 210, 1e-16).todense()).T
+
+    # Compute Sparsity Criteria
+    SPCMix = TF.WDODisjointness.l1l2_sparsity_measure(np.abs(ms))
+    SPCVox = TF.WDODisjointness.l1l2_sparsity_measure(np.abs(vs))
+
+    return SPCMix, SPCVox
+
+def spc_eval_dctdst_oc(mixKaraoke, vox):
+    # Analysis Parameters
+    N = 1024
+    winsamples = 2 * N
+    win = np.sin(np.pi/(winsamples)*(np.arange(0,winsamples)+0.5))
+
+    # Acquire modulation matrices
+    Cos, Sin = TF.TimeFrequencyDecomposition.coreModulation(win, N)
+    Cos = Cos.T
+    Sin = Sin.T
+
+    # Create Dictionary
+    CS2 = np.asfortranarray(np.hstack((Cos, Sin)), (np.float32))
+
+    # Ovelapped analysis with 50%
+    karmix = np.asfortranarray(OLAnalysis(mixKaraoke, win, winsamples, N).T, np.float32)
+    vox = np.asfortranarray(OLAnalysis(vox, win, winsamples, N).T, np.float32)
+
+    # Acquire coefficients using orthogonal matching pursuit
+    ms = np.asarray(spams.omp(karmix, CS2, 410, 1e-16).todense()).T
+    vs = np.asarray(spams.omp(vox, CS2, 410, 1e-16).todense()).T
+
+    # Compute Sparsity Criteria
+    SPCMix = TF.WDODisjointness.l1l2_sparsity_measure(np.abs(ms))
+    SPCVox = TF.WDODisjointness.l1l2_sparsity_measure(np.abs(vs))
+
+    return SPCMix, SPCVox
+
 # Result Loading
 def load_results():
     # STFT
@@ -331,14 +522,19 @@ def load_results():
     mdct_a12 = np.load('WDO-Experiment/mdct_a12.npy')
     mdcst_a1 = np.load('WDO-Experiment/mdcst_a1.npy')
     mdcst_a12 = np.load('WDO-Experiment/mdcst_a12.npy')
+
     # PQMF
     pqmf_cos_a1 = np.load('WDO-Experiment/pqmf_cos_a1.npy')
     pqmf_cos_a2 = np.load('WDO-Experiment/pqmf_cos_a12.npy')
     pqmf_compl_a1 = np.load('WDO-Experiment/pqmf_compl_a1.npy')
     pqmf_compl_a2 = np.load('WDO-Experiment/pqmf_compl_a12.npy')
 
+    # Matching Pursuit OC
+    mdct_oc = np.load('WDO-Experiment/mdct_oc.npy')
+    mdcst_oc = np.load('WDO-Experiment/mdcst_oc.npy')
+
     return stft_hann_a1,stft_hann_a12,stft_bt_a1, stft_bt_a12, stft_nt_a1,stft_nt_a12, stft_ntB_a1, stft_ntB_a12, \
-    mdct_a1, mdct_a12, mdcst_a1, mdcst_a12, pqmf_cos_a1, pqmf_cos_a2, pqmf_compl_a1, pqmf_compl_a2
+    mdct_a1, mdct_a12, mdcst_a1, mdcst_a12, pqmf_cos_a1, pqmf_cos_a2, pqmf_compl_a1, pqmf_compl_a2, mdct_oc, mdcst_oc
 
 def load_SPCresults():
     # STFT
@@ -360,8 +556,12 @@ def load_SPCresults():
     spc_pqmf = np.load('WDO-Experiment/spc_pqmf_cos_a1.npy')
     spc_pqmf_comp = np.load('WDO-Experiment/spc_pqmf_compl_a1.npy')
 
+    # Matching Pursuit OC
+    mdct_oc = np.load('WDO-Experiment/mdct_oc.npy')
+    mdcst_oc = np.load('WDO-Experiment/mdcst_oc.npy')
+
     return spc_stft_hann, spc_stft_bt, spc_stft_nt, spc_stft_ntB, spc_mdct,\
-           spc_mdcst, spc_pqmf, spc_pqmf_comp
+           spc_mdcst, spc_pqmf, spc_pqmf_comp, mdct_oc, mdcst_oc
 
 # Main Operations
 ### WDO
@@ -409,6 +609,11 @@ def mainWDO(selection):
     mdcst_a12 = np.zeros(endIndx - strtIndx)
     pqmf_cos_a12 = np.zeros(endIndx - strtIndx)
     pqmf_compl_a12 = np.zeros(endIndx - strtIndx)
+
+
+    # Matching Pursuit based decompositions
+    mdct_oc = np.zeros(endIndx - strtIndx)
+    mdcst_oc = np.zeros(endIndx - strtIndx)
 
     for Fileindx in range(strtIndx,endIndx):
         cell = 'A' + str(Fileindx)
@@ -502,6 +707,13 @@ def mainWDO(selection):
             np.save('WDO-Experiment/pqmf_compl_a1.npy', pqmf_compl_a1)
             np.save('WDO-Experiment/pqmf_compl_a12.npy', pqmf_compl_a12)
 
+        elif selection == 'mdcst_oc':
+            mdct_oc[saveIndx] = eval_dct_oc(mixKaraoke, vox)
+            mdcst_oc[saveIndx] = eval_dctdst_oc(mixKaraoke, vox)
+
+            np.save('WDO-Experiment/mdct_oc.npy', mdct_oc)
+            np.save('WDO-Experiment/mdcst_oc.npy', mdcst_oc)
+
         else :
             assert('Unknown Selection!')
 
@@ -544,6 +756,10 @@ def mainSPC(selection):
     mdcst_a1 = np.zeros((endIndx - strtIndx, 2))
     pqmf_cos_a1 = np.zeros((endIndx - strtIndx, 2))
     pqmf_compl_a1 = np.zeros((endIndx - strtIndx, 2))
+
+
+    mdct_oc = np.zeros((endIndx - strtIndx, 2))
+    mdcst_oc = np.zeros((endIndx - strtIndx, 2))
 
     for Fileindx in range(strtIndx,endIndx):
         cell = 'A' + str(Fileindx)
@@ -602,9 +818,8 @@ def mainSPC(selection):
             print('PQMF')
             # Alpha = 1.
             pqmf_cos_a1[saveIndx, 0], pqmf_cos_a1[saveIndx, 1] = spc_eval_pqmf_cos(1., mixKaraoke, vox)
-
+            print(pqmf_cos_a1[saveIndx, 0], pqmf_cos_a1[saveIndx, 1])
             np.save('WDO-Experiment/spc_pqmf_cos_a1.npy', pqmf_cos_a1)
-            np.save('WDO-Experiment/spc_pqmf_cos_a12.npy', pqmf_cos_a12)
 
 
         elif selection == 'pqmf_complex':
@@ -613,6 +828,14 @@ def mainSPC(selection):
             pqmf_compl_a1[saveIndx, 0], pqmf_compl_a1[saveIndx, 1] = spc_eval_pqmf_complex(1., mixKaraoke, vox)
 
             np.save('WDO-Experiment/spc_pqmf_compl_a1.npy', pqmf_compl_a1)
+
+        elif selection == 'mdcst_oc':
+            mdct_oc[saveIndx, 0], mdct_oc[saveIndx, 1] = spc_eval_dct_oc(mixKaraoke, vox)
+            mdcst_oc[saveIndx, 0], mdcst_oc[saveIndx, 1] = spc_eval_dctdst_oc(mixKaraoke, vox)
+
+            np.save('WDO-Experiment/spc_mdct_oc.npy', mdct_oc)
+            np.save('WDO-Experiment/spc_mdcst_oc.npy', mdcst_oc)
+
 
         else :
             assert('Unknown Selection!')
@@ -624,50 +847,53 @@ def mainSPC(selection):
 
 if __name__ == "__main__":
     # Define Operation
-    operation = 'Results'
+    operation = 'WDO'
     multi_processing = True
 
     if operation == 'WDO' :
         if multi_processing == True :
-            p1 = Process(target = mainWDO, args = ('stft',))
-            p1.start()
-            p2 = Process(target = mainWDO, args = ('mdct',))
-            p2.start()
-            p3 = Process(target = mainWDO, args = ('pqmf',))
-            p3.start()
-            p4 = Process(target = mainWDO, args = ('pqmf_complex',))
-            p4.start()
+            #p1 = Process(target = mainWDO, args = ('stft',))
+            #p1.start()
+            #p2 = Process(target = mainWDO, args = ('mdct',))
+            #p2.start()
+            #p3 = Process(target = mainWDO, args = ('pqmf',))
+            #p3.start()
+            #p4 = Process(target = mainWDO, args = ('pqmf_complex',))
+            #p4.start()
+            p5 = Process(target = mainWDO, args = ('mdcst_oc',))
+            p5.start()
 
-            p1.join()
-            p2.join()
-            p3.join()
-            p4.join()
-        else :
-            mainWDO()
+            #p1.join()
+            #p2.join()
+            #p3.join()
+            #p4.join()
+            p5.join()
 
+    operation = 'Sparsity' ###
     if operation == 'Sparsity' :
         if multi_processing == True :
-            p1 = Process(target = mainSPC, args = ('stft',))
-            p1.start()
-            p2 = Process(target = mainSPC, args = ('mdct',))
-            p2.start()
-            p3 = Process(target = mainSPC, args = ('pqmf',))
-            p3.start()
-            p4 = Process(target = mainSPC, args = ('pqmf_complex',))
-            p4.start()
+            #p1 = Process(target = mainSPC, args = ('stft',))
+            #p1.start()
+            #p2 = Process(target = mainSPC, args = ('mdct',))
+            #p2.start()
+            #p3 = Process(target = mainSPC, args = ('pqmf',))
+            #p3.start()
+            #p4 = Process(target = mainSPC, args = ('pqmf_complex',))
+            #p4.start()
+            p5 = Process(target = mainSPC, args = ('mdcst_oc',))
+            p5.start()
 
-            p1.join()
-            p2.join()
-            p3.join()
-            p4.join()
-        else :
-            mainSPC()
+            #p1.join()
+            #p2.join()
+            #p3.join()
+            #p4.join()
+            p5.join()
 
     if operation == 'Results':
         print('Loading WDO Results')
 
         stft_hann_a1, stft_hann_a12, stft_bt_a1, stft_bt_a12, stft_nt_a1, stft_nt_a12, stft_ntB_a1, stft_ntB_a12, \
-        mdct_a1, mdct_a12, mdcst_a1, mdcst_a12, pqmf_cos_a1, pqmf_cos_a2, pqmf_compl_a1, pqmf_compl_a2 = load_results()
+        mdct_a1, mdct_a12, mdcst_a1, mdcst_a12, pqmf_cos_a1, pqmf_cos_a2, pqmf_compl_a1, pqmf_compl_a2, mdct_oc, mdcst_oc = load_results()
 
         # Avoid two audio files with silence in vocals
         stft_hann_a1 = np.delete(stft_hann_a1, (71, 75))
@@ -686,10 +912,12 @@ if __name__ == "__main__":
         pqmf_cos_a2 = np.delete(pqmf_cos_a2, (71, 75))
         pqmf_compl_a1 = np.delete(pqmf_compl_a1, (71, 75))
         pqmf_compl_a2 = np.delete(pqmf_compl_a2, (71, 75))
+        mdct_oc = np.delete(mdct_oc, (71, 75))
+        mdcst_oc = np.delete(mdcst_oc, (71, 75))
 
-        data = np.vstack((stft_hann_a1, stft_bt_a1, stft_nt_a1, stft_ntB_a1, mdct_a1, mdcst_a1, pqmf_cos_a1, pqmf_compl_a1)).T
-        colors = ['cyan', 'cyan', 'lightblue', 'lightblue', 'lightgreen', 'lightgreen', 'pink', 'pink']
-        labels = ['STFT Hann 50%', 'STFT Brt 50%', 'STFT Nt 75%', 'STFT Nt 50%', 'MDCT', 'MDCST', 'PQMF-cos', 'PQMF-complex']
+        data = np.vstack((stft_hann_a1, stft_bt_a1, stft_nt_a1, stft_ntB_a1, mdct_a1, mdcst_a1, pqmf_cos_a1, pqmf_compl_a1, mdct_oc, mdcst_oc)).T
+        colors = ['cyan', 'cyan', 'lightblue', 'lightblue', 'lightgreen', 'lightgreen', 'pink', 'pink', 'red', 'red']
+        labels = ['STFT Hann 50%', 'STFT Brt 50%', 'STFT Nt 75%', 'STFT Nt 50%', 'MDCT', 'MDCST', 'PQMF-cos', 'PQMF-complex', 'OMP DCT', 'OMP DCT/DST']
 
         meanpointprops = dict(marker='D', markeredgecolor='black', markerfacecolor='firebrick')
 
@@ -704,7 +932,7 @@ if __name__ == "__main__":
         plt.show(block = False)
 
         print('Loading Sparsity Results')
-        spc_stft_hann, spc_stft_bt, spc_stft_nt, spc_stft_ntB, spc_mdct, spc_mdcst, spc_pqmf, spc_pqmf_comp = load_SPCresults()
+        spc_stft_hann, spc_stft_bt, spc_stft_nt, spc_stft_ntB, spc_mdct, spc_mdcst, spc_pqmf, spc_pqmf_comp, spc_mdct_oc, spc_mdcst_oc = load_SPCresults()
 
         # Acquire sparsity measures for mixture and singing voice
         spc_stft_hann_mix = np.delete(spc_stft_hann[:, 0], (71, 75))
@@ -723,13 +951,16 @@ if __name__ == "__main__":
         spc_pqmf_sv = np.delete(spc_pqmf[:, 1], (71, 75))
         spc_pqmf_comp_mix = np.delete(spc_pqmf_comp[:, 0], (71, 75))
         spc_pqmf_comp_sv = np.delete(spc_pqmf_comp[:, 1], (71, 75))
+        spc_mdct_oc_mix = np.delete(spc_mdct_oc[:, 0], (71, 75))
+        spc_mdct_oc_sv = np.delete(spc_mdct_oc[:, 1], (71, 75))
+        spc_mdcst_oc_mix = np.delete(spc_mdcst_oc[:, 0], (71, 75))
+        spc_mdcst_oc_sv = np.delete(spc_mdcst_oc[:, 1], (71, 75))
 
+        dataMIX = np.vstack((spc_stft_hann_mix, spc_stft_bt_mix, spc_stft_nt_mix, spc_stft_ntB_mix, spc_mdct_mix, spc_mdcst_mix, spc_pqmf_mix, spc_pqmf_comp_mix, spc_mdct_oc_mix, spc_mdcst_oc_mix)).T
+        dataSV = np.vstack((spc_stft_hann_sv, spc_stft_bt_sv, spc_stft_nt_sv, spc_stft_ntB_sv, spc_mdct_sv, spc_mdcst_sv, spc_pqmf_sv, spc_pqmf_comp_sv, spc_mdct_oc_sv, spc_mdcst_oc_sv)).T
 
-        dataMIX = np.vstack((spc_stft_hann_mix, spc_stft_bt_mix, spc_stft_nt_mix, spc_stft_ntB_mix, spc_mdct_mix, spc_mdcst_mix, spc_pqmf_mix, spc_pqmf_comp_mix)).T
-        dataSV = np.vstack((spc_stft_hann_sv, spc_stft_bt_sv, spc_stft_nt_sv, spc_stft_ntB_sv, spc_mdct_sv, spc_mdcst_sv, spc_pqmf_sv, spc_pqmf_comp_sv)).T
-
-        colors = ['cyan', 'cyan', 'lightblue', 'lightblue', 'lightgreen', 'lightgreen', 'pink', 'pink']
-        labels = ['STFT Hann 50%', 'STFT Brt 50%', 'STFT Nt 75%', 'STFT Nt 50%', 'MDCT', 'MDCST', 'PQMF-cos', 'PQMF-complex']
+        colors = ['cyan', 'cyan', 'lightblue', 'lightblue', 'lightgreen', 'lightgreen', 'pink', 'pink', 'red', 'red']
+        labels = ['STFT Hann 50%', 'STFT Brt 50%', 'STFT Nt 75%', 'STFT Nt 50%', 'MDCT', 'MDCST', 'PQMF-cos', 'PQMF-complex', 'OMP DCT', 'OMP DCT/DST']
 
         meanpointprops = dict(marker='D', markeredgecolor='black', markerfacecolor='firebrick')
 
