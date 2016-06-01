@@ -502,36 +502,36 @@ def spc_eval_dctdst_oc(mixKaraoke, vox):
 def load_results():
     # STFT
     # Hanning
-    stft_hann_a1 = np.load('WDO-Experiment/stft_hann_a1.npy')
-    stft_hann_a12 = np.load('WDO-Experiment/stft_hann_a12.npy')
+    stft_hann_a1 = np.load('WDOExperiment/stft_hann_a1.npy')
+    stft_hann_a12 = np.load('WDOExperiment/stft_hann_a12.npy')
 
     # Bartlett
-    stft_bt_a1 = np.load('WDO-Experiment/stft_bt_a1.npy')
-    stft_bt_a12 = np.load('WDO-Experiment/stft_bt_a12.npy')
+    stft_bt_a1 = np.load('WDOExperiment/stft_bt_a1.npy')
+    stft_bt_a12 = np.load('WDOExperiment/stft_bt_a12.npy')
 
     # Nuttall-4b
-    stft_nt_a1 = np.load('WDO-Experiment/stft_nt_a1.npy')
-    stft_nt_a12 = np.load('WDO-Experiment/stft_nt_a12.npy')
+    stft_nt_a1 = np.load('WDOExperiment/stft_nt_a1.npy')
+    stft_nt_a12 = np.load('WDOExperiment/stft_nt_a12.npy')
 
-    stft_ntB_a1 = np.load('WDO-Experiment/stft_ntB_a1.npy')
-    stft_ntB_a12 = np.load('WDO-Experiment/stft_ntB_a12.npy')
+    stft_ntB_a1 = np.load('WDOExperiment/stft_ntB_a1.npy')
+    stft_ntB_a12 = np.load('WDOExperiment/stft_ntB_a12.npy')
 
 
     # MDCT
-    mdct_a1 = np.load('WDO-Experiment/mdct_a1.npy')
-    mdct_a12 = np.load('WDO-Experiment/mdct_a12.npy')
-    mdcst_a1 = np.load('WDO-Experiment/mdcst_a1.npy')
-    mdcst_a12 = np.load('WDO-Experiment/mdcst_a12.npy')
+    mdct_a1 = np.load('WDOExperiment/mdct_a1.npy')
+    mdct_a12 = np.load('WDOExperiment/mdct_a12.npy')
+    mdcst_a1 = np.load('WDOExperiment/mdcst_a1.npy')
+    mdcst_a12 = np.load('WDOExperiment/mdcst_a12.npy')
 
     # PQMF
-    pqmf_cos_a1 = np.load('WDO-Experiment/pqmf_cos_a1.npy')
-    pqmf_cos_a2 = np.load('WDO-Experiment/pqmf_cos_a12.npy')
-    pqmf_compl_a1 = np.load('WDO-Experiment/pqmf_compl_a1.npy')
-    pqmf_compl_a2 = np.load('WDO-Experiment/pqmf_compl_a12.npy')
+    pqmf_cos_a1 = np.load('WDOExperiment/pqmf_cos_a1.npy')
+    pqmf_cos_a2 = np.load('WDOExperiment/pqmf_cos_a12.npy')
+    pqmf_compl_a1 = np.load('WDOExperiment/pqmf_compl_a1.npy')
+    pqmf_compl_a2 = np.load('WDOExperiment/pqmf_compl_a12.npy')
 
     # Matching Pursuit OC
-    mdct_oc = np.load('WDO-Experiment/mdct_oc.npy')
-    mdcst_oc = np.load('WDO-Experiment/mdcst_oc.npy')
+    mdct_oc = np.load('WDOExperiment/mdct_oc.npy')
+    mdcst_oc = np.load('WDOExperiment/mdcst_oc.npy')
 
     return stft_hann_a1,stft_hann_a12,stft_bt_a1, stft_bt_a12, stft_nt_a1,stft_nt_a12, stft_ntB_a1, stft_ntB_a12, \
     mdct_a1, mdct_a12, mdcst_a1, mdcst_a12, pqmf_cos_a1, pqmf_cos_a2, pqmf_compl_a1, pqmf_compl_a2, mdct_oc, mdcst_oc
@@ -539,26 +539,26 @@ def load_results():
 def load_SPCresults():
     # STFT
     # Hanning
-    spc_stft_hann = np.load('WDO-Experiment/spc_stft_hann_a1.npy')
+    spc_stft_hann = np.load('WDOExperiment/spc_stft_hann_a1.npy')
 
     # Bartlett
-    spc_stft_bt = np.load('WDO-Experiment/spc_stft_bt_a1.npy')
+    spc_stft_bt = np.load('WDOExperiment/spc_stft_bt_a1.npy')
 
     # Nuttall-4b
-    spc_stft_nt = np.load('WDO-Experiment/spc_stft_nt_a1.npy')
-    spc_stft_ntB = np.load('WDO-Experiment/spc_stft_ntB_a1.npy')
+    spc_stft_nt = np.load('WDOExperiment/spc_stft_nt_a1.npy')
+    spc_stft_ntB = np.load('WDOExperiment/spc_stft_ntB_a1.npy')
 
     # MDCT
-    spc_mdct = np.load('WDO-Experiment/spc_mdct_a1.npy')
-    spc_mdcst = np.load('WDO-Experiment/spc_mdcst_a1.npy')
+    spc_mdct = np.load('WDOExperiment/spc_mdct_a1.npy')
+    spc_mdcst = np.load('WDOExperiment/spc_mdcst_a1.npy')
 
     # PQMF
-    spc_pqmf = np.load('WDO-Experiment/spc_pqmf_cos_a1.npy')
-    spc_pqmf_comp = np.load('WDO-Experiment/spc_pqmf_compl_a1.npy')
+    spc_pqmf = np.load('WDOExperiment/spc_pqmf_cos_a1.npy')
+    spc_pqmf_comp = np.load('WDOExperiment/spc_pqmf_compl_a1.npy')
 
     # Matching Pursuit OC
-    mdct_oc = np.load('WDO-Experiment/mdct_oc.npy')
-    mdcst_oc = np.load('WDO-Experiment/mdcst_oc.npy')
+    mdct_oc = np.load('WDOExperiment/spc_mdct_oc.npy')
+    mdcst_oc = np.load('WDOExperiment/spc_mdcst_oc.npy')
 
     return spc_stft_hann, spc_stft_bt, spc_stft_nt, spc_stft_ntB, spc_mdct,\
            spc_mdcst, spc_pqmf, spc_pqmf_comp, mdct_oc, mdcst_oc
@@ -659,14 +659,14 @@ def mainWDO(selection):
             stft_nt_a12[saveIndx] = eval_stft_nt(1.2, mixKaraoke, vox)
             stft_nt_a12[saveIndx] = eval_stft_ntB(1.2, mixKaraoke, vox)
 
-            np.save('WDO-Experiment/stft_hann_a1.npy', stft_hann_a1)
-            np.save('WDO-Experiment/stft_bt_a1.npy', stft_bt_a1)
-            np.save('WDO-Experiment/stft_nt_a1.npy', stft_nt_a1)
-            np.save('WDO-Experiment/stft_ntB_a1.npy', stft_ntB_a1)
-            np.save('WDO-Experiment/stft_hann_a12.npy', stft_hann_a12)
-            np.save('WDO-Experiment/stft_bt_a12.npy', stft_bt_a12)
-            np.save('WDO-Experiment/stft_nt_a12.npy', stft_nt_a12)
-            np.save('WDO-Experiment/stft_ntB_a12.npy', stft_ntB_a12)
+            np.save('WDOExperiment/stft_hann_a1.npy', stft_hann_a1)
+            np.save('WDOExperiment/stft_bt_a1.npy', stft_bt_a1)
+            np.save('WDOExperiment/stft_nt_a1.npy', stft_nt_a1)
+            np.save('WDOExperiment/stft_ntB_a1.npy', stft_ntB_a1)
+            np.save('WDOExperiment/stft_hann_a12.npy', stft_hann_a12)
+            np.save('WDOExperiment/stft_bt_a12.npy', stft_bt_a12)
+            np.save('WDOExperiment/stft_nt_a12.npy', stft_nt_a12)
+            np.save('WDOExperiment/stft_ntB_a12.npy', stft_ntB_a12)
 
 
         elif selection == 'mdct':
@@ -679,10 +679,10 @@ def mainWDO(selection):
             mdct_a12[saveIndx] = eval_mdct(1.2, mixKaraoke, vox)
             mdcst_a12[saveIndx] = eval_mdcst_complex(1.2, mixKaraoke, vox)
 
-            np.save('WDO-Experiment/mdct_a1.npy', mdct_a1)
-            np.save('WDO-Experiment/mdcst_a1.npy', mdcst_a1)
-            np.save('WDO-Experiment/mdct_a12.npy', mdct_a12)
-            np.save('WDO-Experiment/mdcst_a12.npy', mdcst_a12)
+            np.save('WDOExperiment/mdct_a1.npy', mdct_a1)
+            np.save('WDOExperiment/mdcst_a1.npy', mdcst_a1)
+            np.save('WDOExperiment/mdct_a12.npy', mdct_a12)
+            np.save('WDOExperiment/mdcst_a12.npy', mdcst_a12)
 
         elif selection == 'pqmf':
             print('PQMF')
@@ -692,8 +692,8 @@ def mainWDO(selection):
             # Alpha = 1.2
             pqmf_cos_a12[saveIndx] = eval_pqmf_cos(1.2, mixKaraoke, vox)
 
-            np.save('WDO-Experiment/pqmf_cos_a1.npy', pqmf_cos_a1)
-            np.save('WDO-Experiment/pqmf_cos_a12.npy', pqmf_cos_a12)
+            np.save('WDOExperiment/pqmf_cos_a1.npy', pqmf_cos_a1)
+            np.save('WDOExperiment/pqmf_cos_a12.npy', pqmf_cos_a12)
 
 
         elif selection == 'pqmf_complex':
@@ -704,15 +704,15 @@ def mainWDO(selection):
             # Alpha = 1.2
             pqmf_compl_a12[saveIndx] = eval_pqmf_complex(1.2, mixKaraoke, vox)
 
-            np.save('WDO-Experiment/pqmf_compl_a1.npy', pqmf_compl_a1)
-            np.save('WDO-Experiment/pqmf_compl_a12.npy', pqmf_compl_a12)
+            np.save('WDOExperiment/pqmf_compl_a1.npy', pqmf_compl_a1)
+            np.save('WDOExperiment/pqmf_compl_a12.npy', pqmf_compl_a12)
 
         elif selection == 'mdcst_oc':
             mdct_oc[saveIndx] = eval_dct_oc(mixKaraoke, vox)
             mdcst_oc[saveIndx] = eval_dctdst_oc(mixKaraoke, vox)
 
-            np.save('WDO-Experiment/mdct_oc.npy', mdct_oc)
-            np.save('WDO-Experiment/mdcst_oc.npy', mdcst_oc)
+            np.save('WDOExperiment/mdct_oc.npy', mdct_oc)
+            np.save('WDOExperiment/mdcst_oc.npy', mdcst_oc)
 
         else :
             assert('Unknown Selection!')
@@ -798,10 +798,10 @@ def mainSPC(selection):
             stft_nt_a1[saveIndx, 0], stft_nt_a1[saveIndx, 1] = spc_eval_stft_nt(1., mixKaraoke, vox)
             stft_ntB_a1[saveIndx, 0], stft_ntB_a1[saveIndx, 1] = spc_eval_stft_ntB(1., mixKaraoke, vox)
 
-            np.save('WDO-Experiment/spc_stft_hann_a1.npy', stft_hann_a1)
-            np.save('WDO-Experiment/spc_stft_bt_a1.npy', stft_bt_a1)
-            np.save('WDO-Experiment/spc_stft_nt_a1.npy', stft_nt_a1)
-            np.save('WDO-Experiment/spc_stft_ntB_a1.npy', stft_ntB_a1)
+            np.save('WDOExperiment/spc_stft_hann_a1.npy', stft_hann_a1)
+            np.save('WDOExperiment/spc_stft_bt_a1.npy', stft_bt_a1)
+            np.save('WDOExperiment/spc_stft_nt_a1.npy', stft_nt_a1)
+            np.save('WDOExperiment/spc_stft_ntB_a1.npy', stft_ntB_a1)
 
 
         elif selection == 'mdct':
@@ -810,8 +810,8 @@ def mainSPC(selection):
             mdct_a1[saveIndx, 0], mdct_a1[saveIndx, 1] = spc_eval_mdct(1., mixKaraoke, vox)
             mdcst_a1[saveIndx, 0], mdcst_a1[saveIndx, 1] = spc_eval_mdcst_complex(1., mixKaraoke, vox)
 
-            np.save('WDO-Experiment/spc_mdct_a1.npy', mdct_a1)
-            np.save('WDO-Experiment/spc_mdcst_a1.npy', mdcst_a1)
+            np.save('WDOExperiment/spc_mdct_a1.npy', mdct_a1)
+            np.save('WDOExperiment/spc_mdcst_a1.npy', mdcst_a1)
 
 
         elif selection == 'pqmf':
@@ -819,7 +819,7 @@ def mainSPC(selection):
             # Alpha = 1.
             pqmf_cos_a1[saveIndx, 0], pqmf_cos_a1[saveIndx, 1] = spc_eval_pqmf_cos(1., mixKaraoke, vox)
             print(pqmf_cos_a1[saveIndx, 0], pqmf_cos_a1[saveIndx, 1])
-            np.save('WDO-Experiment/spc_pqmf_cos_a1.npy', pqmf_cos_a1)
+            np.save('WDOExperiment/spc_pqmf_cos_a1.npy', pqmf_cos_a1)
 
 
         elif selection == 'pqmf_complex':
@@ -827,14 +827,14 @@ def mainSPC(selection):
             # Alpha = 1.
             pqmf_compl_a1[saveIndx, 0], pqmf_compl_a1[saveIndx, 1] = spc_eval_pqmf_complex(1., mixKaraoke, vox)
 
-            np.save('WDO-Experiment/spc_pqmf_compl_a1.npy', pqmf_compl_a1)
+            np.save('WDOExperiment/spc_pqmf_compl_a1.npy', pqmf_compl_a1)
 
         elif selection == 'mdcst_oc':
             mdct_oc[saveIndx, 0], mdct_oc[saveIndx, 1] = spc_eval_dct_oc(mixKaraoke, vox)
             mdcst_oc[saveIndx, 0], mdcst_oc[saveIndx, 1] = spc_eval_dctdst_oc(mixKaraoke, vox)
 
-            np.save('WDO-Experiment/spc_mdct_oc.npy', mdct_oc)
-            np.save('WDO-Experiment/spc_mdcst_oc.npy', mdcst_oc)
+            np.save('WDOExperiment/spc_mdct_oc.npy', mdct_oc)
+            np.save('WDOExperiment/spc_mdcst_oc.npy', mdcst_oc)
 
 
         else :
@@ -847,47 +847,60 @@ def mainSPC(selection):
 
 if __name__ == "__main__":
     # Define Operation
-    operation = 'WDO'
+    operation = 'Results'
     multi_processing = True
 
     if operation == 'WDO' :
         if multi_processing == True :
-            #p1 = Process(target = mainWDO, args = ('stft',))
-            #p1.start()
-            #p2 = Process(target = mainWDO, args = ('mdct',))
-            #p2.start()
-            #p3 = Process(target = mainWDO, args = ('pqmf',))
-            #p3.start()
-            #p4 = Process(target = mainWDO, args = ('pqmf_complex',))
-            #p4.start()
+            p1 = Process(target = mainWDO, args = ('stft',))
+            p1.start()
+            p2 = Process(target = mainWDO, args = ('mdct',))
+            p2.start()
+            p3 = Process(target = mainWDO, args = ('pqmf',))
+            p3.start()
+            p4 = Process(target = mainWDO, args = ('pqmf_complex',))
+            p4.start()
             p5 = Process(target = mainWDO, args = ('mdcst_oc',))
             p5.start()
 
-            #p1.join()
-            #p2.join()
-            #p3.join()
-            #p4.join()
+            p1.join()
+            p2.join()
+            p3.join()
+            p4.join()
             p5.join()
+        else :
+            mainWDO('stft')
+            mainWDO('mdct')
+            mainWDO('pqmf')
+            mainWDO('pqmf_complex')
+            mainWDO('mdcst_oc')
 
-    operation = 'Sparsity' ###
+    #operation = 'Sparsity' ###
     if operation == 'Sparsity' :
         if multi_processing == True :
-            #p1 = Process(target = mainSPC, args = ('stft',))
-            #p1.start()
-            #p2 = Process(target = mainSPC, args = ('mdct',))
-            #p2.start()
-            #p3 = Process(target = mainSPC, args = ('pqmf',))
-            #p3.start()
-            #p4 = Process(target = mainSPC, args = ('pqmf_complex',))
-            #p4.start()
+            p1 = Process(target = mainSPC, args = ('stft',))
+            p1.start()
+            p2 = Process(target = mainSPC, args = ('mdct',))
+            p2.start()
+            p3 = Process(target = mainSPC, args = ('pqmf',))
+            p3.start()
+            p4 = Process(target = mainSPC, args = ('pqmf_complex',))
+            p4.start()
             p5 = Process(target = mainSPC, args = ('mdcst_oc',))
             p5.start()
 
-            #p1.join()
-            #p2.join()
-            #p3.join()
-            #p4.join()
+            p1.join()
+            p2.join()
+            p3.join()
+            p4.join()
             p5.join()
+
+        else :
+            mainSPC('stft')
+            mainSPC('mdct')
+            mainSPC('pqmf')
+            mainSPC('pqmf_complex')
+            mainSPC('mdcst_oc')
 
     if operation == 'Results':
         print('Loading WDO Results')
@@ -895,7 +908,7 @@ if __name__ == "__main__":
         stft_hann_a1, stft_hann_a12, stft_bt_a1, stft_bt_a12, stft_nt_a1, stft_nt_a12, stft_ntB_a1, stft_ntB_a12, \
         mdct_a1, mdct_a12, mdcst_a1, mdcst_a12, pqmf_cos_a1, pqmf_cos_a2, pqmf_compl_a1, pqmf_compl_a2, mdct_oc, mdcst_oc = load_results()
 
-        # Avoid two audio files with silence in vocals
+        # Avoid two audio files
         stft_hann_a1 = np.delete(stft_hann_a1, (71, 75))
         stft_hann_a12 = np.delete(stft_hann_a12, (71, 75))
         stft_bt_a1 = np.delete(stft_bt_a1, (71, 75))
@@ -916,7 +929,7 @@ if __name__ == "__main__":
         mdcst_oc = np.delete(mdcst_oc, (71, 75))
 
         data = np.vstack((stft_hann_a1, stft_bt_a1, stft_nt_a1, stft_ntB_a1, mdct_a1, mdcst_a1, pqmf_cos_a1, pqmf_compl_a1, mdct_oc, mdcst_oc)).T
-        colors = ['cyan', 'cyan', 'lightblue', 'lightblue', 'lightgreen', 'lightgreen', 'pink', 'pink', 'red', 'red']
+        colors = ['cyan', 'cyan', 'lightblue', 'lightblue', 'lightgreen', 'lightgreen', 'pink', 'pink', 'gray', 'gray']
         labels = ['STFT Hann 50%', 'STFT Brt 50%', 'STFT Nt 75%', 'STFT Nt 50%', 'MDCT', 'MDCST', 'PQMF-cos', 'PQMF-complex', 'OMP DCT', 'OMP DCT/DST']
 
         meanpointprops = dict(marker='D', markeredgecolor='black', markerfacecolor='firebrick')
@@ -983,9 +996,3 @@ if __name__ == "__main__":
 
         plt.ylabel('Sparsity Measure')
         plt.show(block = False)
-
-
-
-
-
-
