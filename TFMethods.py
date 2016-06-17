@@ -749,7 +749,7 @@ class PsychoacousticModel:
             mT[indx, :] = self.maskingThreshold(mX[indx, :])
 
         # Inverse the filter of masking threshold
-        mT = 1./ (1. - mT)
+        mT = 1./ (1. + mT)
 
         # Outer/Middle Ear transfer function approximation
         LTq = self.MOEar()
