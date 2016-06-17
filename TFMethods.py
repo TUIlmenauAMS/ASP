@@ -5,7 +5,7 @@ __copyright__ = 'MacSeNet'
 import math
 import numpy as np
 from scipy.fftpack import fft, ifft, dct, dst
-from scipy.signal import hilbert
+from scipy.signal import hilbert, resample, decimate
 
 eps = np.finfo(np.double).tiny
 
@@ -49,7 +49,7 @@ class TimeFrequencyDecomposition:
         X = fft(fftbuffer)
 
         # Acquire magnitude and phase spectrum
-        magX = abs(X[:hlfN])
+        magX = (np.abs(X[:hlfN]))
         phsX = (np.angle(X[:hlfN]))
 
         return magX, phsX
@@ -237,41 +237,6 @@ class TimeFrequencyDecomposition:
         return w
 
     @staticmethod
-    def shifted_blackmanharris(M, sym=False):
-        """
-            Return a shifted, minimum 4-term Blackman-Harris window.
-
-            Args    :
-                M   :   (int)   Number of points in the output window.
-                sym :   (array) Synthesised time-domain real signal.
-
-            Returns :
-                w   :   (ndarray) The windowing function
-        """
-
-        if M < 1:
-            return np.array([])
-        if M == 1:
-            return np.ones(1, 'd')
-
-        ws = np.zeros(M)
-        M = M - 1
-
-        if not sym:
-            M = M + 1
-        a = [0.35875, 0.48829, 0.14128, 0.01168]
-        n = np.arange(0, M)
-        fac = n * 2 * np.pi / (M - 1.0)
-        w = (a[0] - a[1] * np.cos(fac) +
-             a[2] * np.cos(2 * fac) - a[3] * np.cos(3 * fac))
-        if not sym:
-            w = w[:-1]
-
-        ws[0:M] = w
-
-        return ws
-
-    @staticmethod
     def coreModulation(win, N):
         """
             Method to produce Analysis and Synthesis matrices for the offline
@@ -456,9 +421,9 @@ class AnalyticFunction:
 
             return xa[:-extraSamples]
 
-class BarkScaling:
-    """ Class that performs the scaling from FFT-based frequency domain to
-        Bark. Based upon Perceptual-Coding-In-Python, [Online] :
+class PsychoacousticModel:
+    """ Class that performs a very basic psychoacoustic model.
+        Bark scaling is based on Perceptual-Coding-In-Python, [Online] :
         https://github.com/stephencwelch/Perceptual-Coding-In-Python
     """
     def __init__(self, N = 4096, fs = 44100, nfilts=24, type = 'rasta', width = 1.0, minfreq=0, maxfreq=22050):
@@ -524,7 +489,6 @@ class BarkScaling:
 
         return W
 
-
     def fft2bark_rasta(self):
         """ Method construct the weight matrix.
         Returns  :
@@ -560,7 +524,6 @@ class BarkScaling:
 
         return W
 
-
     def bark2mX(self):
         """ Method construct the inverse weight matrix, to map back to FT domain.
         Returns  :
@@ -590,7 +553,6 @@ class BarkScaling:
 
         return Brk
 
-
     def bark2hz(self, Brk):
         """ Method to compute Hz from Bark scale.
         Args     :
@@ -601,7 +563,6 @@ class BarkScaling:
         Fhz = 650. * np.sinh(Brk/7.)
 
         return Fhz
-
 
     def CB_filters(self):
         """ Method to acquire critical band filters for creation of the PEAQ FFT model.
@@ -682,7 +643,6 @@ class BarkScaling:
 
         return fc, fl, fu
 
-
     def forward(self, spc):
         """ Method to transform FT domain to Bark.
         Args         :
@@ -694,7 +654,6 @@ class BarkScaling:
         Brk_spc = np.dot(W_short,spc)
         return Brk_spc
 
-
     def backward(self, Brk_spc):
         """ Method to reconstruct FT domain from Bark.
         Args         :
@@ -704,6 +663,63 @@ class BarkScaling:
         """
         Xhat = np.dot(self.W_inv,Brk_spc)
         return Xhat
+
+    def MOEar(self):
+        """ Method to approximate middle-outer ear transfer function for linearly scaled
+            frequency representations.
+        Returns      :
+            LTq      : (ndarray)    1D Array containing the transfer function.
+        """
+        fc, _, _ = self.CB_filters()
+        LTq = 3.64 * (fc / 1000.) ** -0.8 - 6.5*np.exp( -0.6 * (fc / 1000. - 3.3) ** 2.) + 1e-3*((fc / 1000.) ** 4.)
+        LTq = 1. + (2. * 1./(10. ** (LTq/20.)))
+        LTq = resample(LTq, self.nfft/2 + 1)
+        return LTq
+
+    def maskingThreshold(self, mX):
+        """ Method to compute the masking threshold by non-linear superposition.
+        As appears in :
+        - G. Schuller and B. Yu and D. Huang and B. Edler, "Perceptual Audio Coding Using Adaptive
+        Pre and Post-filters and Lossless Compression", in IEEE Transactions on Speech and Audio Processing,
+        vol. 10, n. 6, pp. 379-390, September, 2002.
+        Args         :
+            mX       : (ndarray)    1D Array containing the magnitude spectra (1 time frame x frequency subbands)
+        Returns      :
+            mT       : (ndarray)    2D Array containing the masking threshold.
+
+        Authors      : Gerald Schuller('shl'), S.I. Mimilakis ('mis')
+        """
+        # Sanity check
+        mX = np.abs(mX)
+        orSize = len(mX)
+        # Reduce for faster computation
+        mX = np.abs(decimate(mX, 8, ftype = 'fir')) + 1e-16
+
+        # Parameters
+        Numsubbands = len(mX)
+        alpha = 1.4
+        maxb = 25.
+        fa = 1/100.
+        fb = 1./(10**(6./20.))
+        fbb = 1./(10**(25./20.))
+        fc = maxb/Numsubbands
+        fd = 1./alpha
+
+        mT = np.zeros((Numsubbands))
+        for n in xrange(Numsubbands):
+            for m in xrange(0, n):
+                mT[n] += (mX[m]*fa * (fb ** ((n - m) * fc))) ** alpha
+
+            # Simultaneous masking
+            mT[n] += (mX[n] * fa)
+
+            for m in xrange(n+1, Numsubbands):
+                mT[n] += (mX[m]*fa * (fbb ** ((m - n) * fc))) ** alpha
+
+            mT[n] = mT[n] ** (fd)
+
+        mT = np.abs(resample(mT, orSize))
+        return mT
 
     def NMREval(self, xn, xnhat):
 
@@ -724,14 +740,22 @@ class BarkScaling:
         mX, _ = TimeFrequencyDecomposition.STFT(xn, np.hanning(2049), 4096, 1024)
         mXhat, _ = TimeFrequencyDecomposition.STFT(xnhat, np.hanning(2049), 4096, 1024)
 
+        # Compute Error
         Err = (mX - mXhat) ** 2.
-        if Err.shape[1] % 2 != 0 :
-            Err = Err[:, :-1]
 
-        print(Err.shape)
+        # Acquire Masking Threshold
+        mT = np.zeros((mX.shape[0], mX.shape[1]))
+        for indx in xrange(mX.shape[0]):
+            mT[indx, :] = self.maskingThreshold(mX[indx, :])
 
-        MNR = 20. * np.log10((np.dot(np.dot(Err, self.W[:, :self.nfreqs].T), self.W_inv.T)).mean())
-        return MNR
+        # Inverse the filter of masking threshold
+        mT = 1./ (1. - mT)
+
+        # Outer/Middle Ear transfer function approximation
+        LTq = self.MOEar()
+
+        NMR = 20. * np.log10(np.sum(mT * LTq * Err) + eps)
+        return NMR
 
 class WDODisjointness:
     """ A Class that measures the disjointness of a Time-frequency decomposition
@@ -740,7 +764,7 @@ class WDODisjointness:
     via time-frequency masking,” IEEE Trans. on Signal Processing, vol. 52, no. 7, pp. 1830–1847, Jul. 2004.
     - J.J. Burred, "From Sparse Models to Timbre Learning: New Methods for Musical Source Separation", PhD Thesis,
     TU Berlin, 2009.
-    - Dimitrios Giannoulis, Daniele Barchiesi, Anssi Klapuri, and Mark D. Plumbley. "On the disjointness of sources
+    - D. Gianoulis, D. Barchiesi, A. Klapuri, and M. D. Plumbley. "On the disjointness of sources
     in music using different time-frequency representations", in Proceedings of the IEEE Workshop on Applications of
     Signal Processing to Audio and Acoustics (WASPAA), 2011.
 
