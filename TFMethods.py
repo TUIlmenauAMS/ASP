@@ -679,7 +679,7 @@ class PsychoacousticModel:
     def maskingThreshold(self, mX):
         """ Method to compute the masking threshold by non-linear superposition.
         As appears in :
-        - G. Schuller and B. Yu and D. Huang and B. Edler, "Perceptual Audio Coding Using Adaptive
+        - G. Schuller, B. Yu, D. Huang and B. Edler, "Perceptual Audio Coding Using Adaptive
         Pre and Post-filters and Lossless Compression", in IEEE Transactions on Speech and Audio Processing,
         vol. 10, n. 6, pp. 379-390, September, 2002.
         Args         :
@@ -693,7 +693,12 @@ class PsychoacousticModel:
         mX = np.abs(mX)
         orSize = len(mX)
         # Reduce for faster computation
-        mX = np.abs(decimate(mX, 8, ftype = 'fir')) + 1e-16
+        if mX.shape[0] <= 128:
+            mX = np.abs(mX) + 1e-16
+        elif mX.shape[0] >= 128 and mX.shape[0] <= 512 :
+            mX = np.abs(decimate(mX, 4, ftype = 'fir')) + 1e-16
+        elif mX.shape[0] >= 512:
+            mX = np.abs(decimate(mX, 8, ftype = 'fir')) + 1e-16
 
         # Parameters
         Numsubbands = len(mX)
@@ -828,7 +833,7 @@ class WDODisjointness:
         return np.sum(np.abs((mX + eps) / ((np.sqrt(np.sum(mX ** 2.))) + eps)))
 
 if __name__ == "__main__":
-
+    import matplotlib.pyplot as plt
     # Test
     kSin = 0.5 * np.cos(np.arange(4096) * (500.0 * (3.1415926 * 2.0) / 44100))
 
@@ -837,24 +842,11 @@ if __name__ == "__main__":
     magX, phsX =  TimeFrequencyDecomposition.STFT(kSin,w,2048,512)
     Y = TimeFrequencyDecomposition.iSTFT(magX,phsX,w.size, 512)
 
-    # Check for perfect resynthesis (neglecting the small difference in numerical precision)
-    if (((np.abs(kSin - Y)).max()) < 1e-15):
-        print('Perfect analysis/resynthesis achieved via STFT')
+    # Usage of psychoacoustic model
+    # Initialize the model
+    pm = PsychoacousticModel(N = 4096, fs = 44100)
 
-    # DFT/iDFT With rectangular window test plus zero-padding
-    w2 = np.ones(len(kSin))
-    magX, phsX =  TimeFrequencyDecomposition.DFT(kSin, w2, len(w2)*2)
-    Y2 = TimeFrequencyDecomposition.iDFT(magX, phsX, len(w2))
-
-    # Check for perfect resynthesis (neglecting the small difference in numerical precision)
-    if (((np.abs(kSin - Y2)).max()) < 1e-15):
-        print('Perfect analysis/resynthesis achieved via zero-padded DFT(FFT)')
-
-    # DFT/iDFT With rectangular window test without zero-padding
-    w2 = np.ones(len(kSin))
-    magX, phsX =  TimeFrequencyDecomposition.DFT(kSin,w2,len(w2))
-    Y3 = TimeFrequencyDecomposition.iDFT(magX, phsX, len(w2))
-
-    # Check for perfect resynthesis (neglecting the small difference in numerical precision)
-    if (((np.abs(kSin - Y3)).max()) < 1e-15):
-        print('Perfect analysis/resynthesis achieved via DFT(FFT)')
+    # Acquire the response
+    LTeq = pm.MOEar()
+    plt.plot(LTeq)
+    plt.show()
