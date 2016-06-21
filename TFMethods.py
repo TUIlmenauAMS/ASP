@@ -127,8 +127,8 @@ class TimeFrequencyDecomposition:
         w = w / sum(w)
 
         # Initialize storing matrix
-        xmX = np.empty((len(x)/hop, N/2 + 1))
-        xpX = np.empty((len(x)/hop, N/2 + 1))
+        xmX = np.zeros((len(x)/hop, N/2 + 1), dtype = np.float32)
+        xpX = np.zeros((len(x)/hop, N/2 + 1), dtype = np.float32)
 
         # Analysis Loop
         while pin <= pend:
