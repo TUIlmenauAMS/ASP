@@ -668,12 +668,11 @@ class PsychoacousticModel:
         """ Method to approximate middle-outer ear transfer function for linearly scaled
             frequency representations.
         Returns      :
-            LTq      : (ndarray)    1D Array containing the transfer function.
+            LTq      : (ndarray)    1D Array containing the transfer function, without the DC sub-band.
         """
-        fc, _, _ = self.CB_filters()
+        fc = ((np.arange(0, self.nfft/2 + 1) * self.fs)/self.nfft)[1:]
         LTq = 3.64 * (fc / 1000.) ** -0.8 - 6.5*np.exp( -0.6 * (fc / 1000. - 3.3) ** 2.) + 1e-3*((fc / 1000.) ** 4.)
-        LTq = 1. + (2. * 1./(10. ** (LTq/20.)))
-        LTq = resample(LTq, self.nfft/2 + 1)
+        LTq = (1./(10. ** (LTq/20.)))
         return LTq
 
     def maskingThreshold(self, mX):
@@ -741,7 +740,6 @@ class PsychoacousticModel:
         - J. Nikunen and T. Virtanen, "Noise-to-mask ratio minimization by weighted non-negative matrix factorization," in
          Acoustics Speech and Signal Processing (ICASSP), 2010 IEEE International Conference on, Dallas, TX, 2010, pp. 25-28.
         """
-
         mX, _ = TimeFrequencyDecomposition.STFT(xn, np.hanning(2049), 4096, 1024)
         mXhat, _ = TimeFrequencyDecomposition.STFT(xnhat, np.hanning(2049), 4096, 1024)
 
@@ -759,6 +757,7 @@ class PsychoacousticModel:
         # Outer/Middle Ear transfer function approximation
         LTq = self.MOEar()
 
+        # Normalized spectrogram, no need of mean computation
         NMR = 20. * np.log10(np.sum(mT * LTq * Err) + eps)
         return NMR
 
