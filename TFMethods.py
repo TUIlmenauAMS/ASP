@@ -5,9 +5,10 @@ __copyright__ = 'MacSeNet'
 import math
 import numpy as np
 from scipy.fftpack import fft, ifft, dct, dst
-from scipy.signal import hilbert, resample, decimate
+from scipy.signal import hilbert, resample, decimate, firwin2, freqz
+from scipy.interpolate import InterpolatedUnivariateSpline as uspline
 
-eps = np.finfo(np.double).tiny
+eps = np.finfo(np.float32).tiny
 
 class TimeFrequencyDecomposition:
     """ A Class that performs time-frequency decompositions by means of a
@@ -530,10 +531,10 @@ class PsychoacousticModel:
             W    : (ndarray)    The inverse transformation matrix.
         """
         # Fix up the weight matrix by transposing and "normalizing"
-        W_short = self.W[:,0:self.nfreqs]
+        W_short = self.W[:,0:self.nfreqs + 1]
         WW = np.dot(W_short.T,W_short)
 
-        WW_mean_diag = np.maximum(np.mean(np.diag(WW))/100, sum(WW,1))
+        WW_mean_diag = np.maximum(np.mean(np.diag(WW)), sum(WW,1))
         WW_mean_diag = np.reshape(WW_mean_diag,(WW_mean_diag.shape[0],1))
         W_inv_denom = np.tile(WW_mean_diag,(1,self.nfilts))
 
@@ -650,7 +651,7 @@ class PsychoacousticModel:
         Returns      :
             Brk_spc  : (ndarray)    2D Array containing the Bark scaled magnitude spectra.
         """
-        W_short = self.W[:,0:self.nfreqs]
+        W_short = self.W[:, 0:self.nfreqs]
         Brk_spc = np.dot(W_short,spc)
         return Brk_spc
 
@@ -664,16 +665,78 @@ class PsychoacousticModel:
         Xhat = np.dot(self.W_inv,Brk_spc)
         return Xhat
 
-    def MOEar(self):
+    def OutMidCorrection(self, correctionType, firOrd, fs):
+
+        # Lookup tables for correction
+        f1 = np.array([20, 25, 30, 35, 40, 45, 50, 55, 60, 70, 80, 90, 100, \
+        125, 150, 177, 200, 250, 300, 350, 400, 450, 500, 550, \
+        600, 700, 800, 900, 1000, 1500, 2000, 2500, 2828, 3000, \
+        3500, 4000, 4500, 5000, 5500, 6000, 7000, 8000, 9000, 10000, \
+        12748, 15000])
+
+        ELC = np.array([ 31.8, 26.0, 21.7, 18.8, 17.2, 15.4, 14.0, 12.6, 11.6, 10.6, \
+            9.2, 8.2, 7.7, 6.7, 5.3, 4.6, 3.9, 2.9, 2.7, 2.3, \
+            2.2, 2.3, 2.5, 2.7, 2.9, 3.4, 3.9, 3.9, 3.9, 2.7, \
+            0.9, -1.3, -2.5, -3.2, -4.4, -4.1, -2.5, -0.5, 2.0, 5.0, \
+            10.2, 15.0, 17.0, 15.5, 11.0, 22.0])
+
+        MAF = np.array([ 73.4, 65.2, 57.9, 52.7, 48.0, 45.0, 41.9, 39.3, 36.8, 33.0, \
+            29.7, 27.1, 25.0, 22.0, 18.2, 16.0, 14.0, 11.4, 9.2, 8.0, \
+             6.9,  6.2,  5.7,  5.1,  5.0,  5.0,  4.4,  4.3, 3.9, 2.7, \
+             0.9, -1.3, -2.5, -3.2, -4.4, -4.1, -2.5, -0.5, 2.0, 5.0, \
+            10.2, 15.0, 17.0, 15.5, 11.0, 22.0])
+
+        f2  = np.array([  125,  250,  500, 1000, 1500, 2000, 3000,  \
+            4000, 6000, 8000, 10000, 12000, 14000, 16000])
+
+        MAP = np.array([ 30.0, 19.0, 12.0,  9.0, 11.0, 16.0, 16.0, \
+            14.0, 14.0,  9.9, 24.7, 32.7, 44.1, 63.7])
+
+        if correctionType == 'ELC':
+            freqTable = f1
+            CorrectionTable = ELC
+        elif correctionType == 'MAF':
+            freqTable = f1
+            CorrectionTable = MAF
+        elif correctionType == 'MAP':
+            freqTable = f2
+            CorrectionTable = MAP
+        else :
+            print('Unrecongised operation: ELC will be used instead...')
+            freqTable = f1
+            CorrectionTable = ELC
+
+        freqN = np.arange(0, firOrd) * fs/2. / (firOrd-1)
+        spline = uspline(freqTable, CorrectionTable)
+        crc = spline(freqN)
+        crclin = 10. ** (-crc/ 10.)
+        return crclin, freqN, crc
+
+    def MOEar(self, correctionType = 'ELC'):
         """ Method to approximate middle-outer ear transfer function for linearly scaled
-            frequency representations.
-        Returns      :
-            LTq      : (ndarray)    1D Array containing the transfer function, without the DC sub-band.
+            frequency representations, using an FIR approximation of order 600 taps.
+        Arguments          :
+            correctionType : (string)     String which specifies the type of correction :
+                                          'ELC' - Equal Loudness Curves at 60 dB (default)
+                                          'MAP' - Minimum Audible Pressure at ear canal
+                                          'MAF' - Minimum Audible Field
+        Returns            :
+            LTq            : (ndarray)    1D Array containing the transfer function, without the DC sub-band.
         """
-        fc = ((np.arange(0, self.nfft/2 + 1) * self.fs)/self.nfft)[1:]
-        LTq = 3.64 * (fc / 1000.) ** -0.8 - 6.5*np.exp( -0.6 * (fc / 1000. - 3.3) ** 2.) + 1e-3*((fc / 1000.) ** 4.)
-        LTq = (1./(10. ** (LTq/20.)))
-        return LTq
+        # Parameters
+        firOrd = self.nfft
+        Cr, fr, Crdb = self.OutMidCorrection(correctionType, firOrd, self.fs)
+        Cr[self.nfft - 1] = 0.
+
+        # FIR Design
+        A = firwin2(firOrd, fr, Cr, nyq = self.fs/2)
+        B = 1
+        _, LTq = freqz(A, B, firOrd, self.fs)
+
+        LTq = 20. * np.log10(np.abs(LTq))
+        LTq -= max(LTq)
+
+        return LTq[:self.nfft/2 + 1]
 
     def maskingThreshold(self, mX):
         """ Method to compute the masking threshold by non-linear superposition.
@@ -682,48 +745,44 @@ class PsychoacousticModel:
         Pre and Post-filters and Lossless Compression", in IEEE Transactions on Speech and Audio Processing,
         vol. 10, n. 6, pp. 379-390, September, 2002.
         Args         :
-            mX       : (ndarray)    1D Array containing the magnitude spectra (1 time frame x frequency subbands)
+            mX       : (ndarray)    2D Array containing the magnitude spectra (1 time frame x frequency subbands)
         Returns      :
             mT       : (ndarray)    2D Array containing the masking threshold.
 
         Authors      : Gerald Schuller('shl'), S.I. Mimilakis ('mis')
         """
-        # Sanity check
-        mX = np.abs(mX)
-        orSize = len(mX)
-        # Reduce for faster computation
-        if mX.shape[0] <= 128:
-            mX = np.abs(mX) + 1e-16
-        elif mX.shape[0] >= 128 and mX.shape[0] <= 512 :
-            mX = np.abs(decimate(mX, 4, ftype = 'fir')) + 1e-16
-        elif mX.shape[0] >= 512:
-            mX = np.abs(decimate(mX, 8, ftype = 'fir')) + 1e-16
+        # Bark Scaling
+        mX = np.dot(np.abs(mX), self.W[:, :self.nfreqs + 1].T)
 
         # Parameters
-        Numsubbands = len(mX)
-        alpha = 1.4
-        maxb = 25.
-        fa = 1/100.
+        Numsubbands = mX.shape[1]
+        timeFrames = mX.shape[0]
+        alpha = 1.2
+        maxb = self.nfilts
+        fa = 1.
         fb = 1./(10**(6./20.))
         fbb = 1./(10**(25./20.))
         fc = maxb/Numsubbands
         fd = 1./alpha
 
-        mT = np.zeros((Numsubbands))
-        for n in xrange(Numsubbands):
-            for m in xrange(0, n):
-                mT[n] += (mX[m]*fa * (fb ** ((n - m) * fc))) ** alpha
+        maskingThreshold = np.zeros((timeFrames, Numsubbands))
+        for frameindx in xrange(mX.shape[0]) :
+            mT = np.zeros((Numsubbands))
+            for n in xrange(Numsubbands):
+                for m in xrange(0, n):
+                    mT[n] += (mX[frameindx, m]*fa * (fb ** ((n - m) * fc))) ** alpha
 
-            # Simultaneous masking
-            mT[n] += (mX[n] * fa)
+                # Simultaneous masking
+                mT[n] += (mX[frameindx, n] * fa)
 
-            for m in xrange(n+1, Numsubbands):
-                mT[n] += (mX[m]*fa * (fbb ** ((m - n) * fc))) ** alpha
+                for m in xrange(n+1, Numsubbands):
+                    mT[n] += (mX[frameindx, m]*fa * (fbb ** ((m - n) * fc))) ** alpha
 
-            mT[n] = mT[n] ** (fd)
+                mT[n] = mT[n] ** (fd)
 
-        mT = np.abs(resample(mT, orSize))
-        return mT
+            maskingThreshold[frameindx, :] = mT
+        maskingThreshold = np.dot(maskingThreshold, self.W_inv[:, :self.nfreqs].T)
+        return maskingThreshold
 
     def NMREval(self, xn, xnhat):
 
@@ -740,25 +799,25 @@ class PsychoacousticModel:
         - J. Nikunen and T. Virtanen, "Noise-to-mask ratio minimization by weighted non-negative matrix factorization," in
          Acoustics Speech and Signal Processing (ICASSP), 2010 IEEE International Conference on, Dallas, TX, 2010, pp. 25-28.
         """
-        mX, _ = TimeFrequencyDecomposition.STFT(xn, np.hanning(2049), 4096, 1024)
-        mXhat, _ = TimeFrequencyDecomposition.STFT(xnhat, np.hanning(2049), 4096, 1024)
+        mX, _ = TimeFrequencyDecomposition.STFT(xn, np.hanning(self.nfft/2 + 1), self.nfft, self.nfft/4)
+        mXhat, _ = TimeFrequencyDecomposition.STFT(xnhat, np.hanning(self.nfft/2 + 1), self.nfft, self.nfft/4)
 
         # Compute Error
-        Err = (mX - mXhat) ** 2.
+        Err = np.abs(mX - mXhat) ** 1.2
 
         # Acquire Masking Threshold
-        mT = np.zeros((mX.shape[0], mX.shape[1]))
-        for indx in xrange(mX.shape[0]):
-            mT[indx, :] = self.maskingThreshold(mX[indx, :])
+        mT = self.maskingThreshold(mX)
 
         # Inverse the filter of masking threshold
-        mT = 1./ (1. + mT)
+        imT = 1./ (1. + mT)
 
-        # Outer/Middle Ear transfer function approximation
-        LTq = self.MOEar()
+        # Outer/Middle Ear transfer function on the diagonal
+        LTq = 10 ** (pm.MOEar()/20.)
+        LTq = LTq * np.eye(len(LTq))
 
         # Normalized spectrogram, no need of mean computation
-        NMR = 20. * np.log10(np.sum(mT * LTq * Err) + eps)
+        NMR = 20. * np.log10(np.sum( imT * np.dot(Err, LTq)) + eps)
+
         return NMR
 
 class WDODisjointness:
@@ -832,20 +891,32 @@ class WDODisjointness:
         return np.sum(np.abs((mX + eps) / ((np.sqrt(np.sum(mX ** 2.))) + eps)))
 
 if __name__ == "__main__":
+    import IOMethods as IO
     import matplotlib.pyplot as plt
+
     # Test
-    kSin = 0.5 * np.cos(np.arange(4096) * (500.0 * (3.1415926 * 2.0) / 44100))
+    kSin = np.cos(np.arange(88200) * (1500.0 * (3.1415926 * 2.0) / 44100))
+    #mix, fs = IO.AudioIO.audioRead('testFiles/cmente.mp3', mono = True)
+    #mix = mix[44100*25:44100*25 + 882000] * 0.5
+    noise = np.random.uniform(-0.5, 0.5, len(kSin))
 
     # STFT/iSTFT Test
     w = np.hanning(1025)
-    magX, phsX =  TimeFrequencyDecomposition.STFT(kSin,w,2048,512)
-    Y = TimeFrequencyDecomposition.iSTFT(magX,phsX,w.size, 512)
+    magX, phsX =  TimeFrequencyDecomposition.STFT(kSin, w, 2048, 512)
+    magN, phsN =  TimeFrequencyDecomposition.STFT(noise, w, 2048, 512)
 
     # Usage of psychoacoustic model
     # Initialize the model
-    pm = PsychoacousticModel(N = 4096, fs = 44100)
-
+    pm = PsychoacousticModel(N = 2048, fs = 44100, nfilts = 64)
     # Acquire the response
-    LTeq = pm.MOEar()
-    plt.plot(LTeq)
-    plt.show()
+    LTeq = 10 ** (pm.MOEar()/20.)
+    # Compute masking threshold
+    mt = pm.maskingThreshold(magX)
+
+    #magN = (1 - mt) * LTeq * (magN - magX)
+    sound = TimeFrequencyDecomposition.iSTFT(magX, phsX, 2048, 512)
+    maskedNoise = TimeFrequencyDecomposition.iSTFT(magN * (mt), phsN, 2048, 512)
+
+    # Test the NMR Function
+    NMR = pm.NMREval(sound, sound+maskedNoise)
+    print(NMR)
