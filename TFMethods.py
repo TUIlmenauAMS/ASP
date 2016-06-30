@@ -17,7 +17,6 @@ class TimeFrequencyDecomposition:
         Gabor transformations and it's variants, alongside with Zero-phase windowing
         technique with arbitrary window size (odd numbers are prefered).
     """
-
     @staticmethod
     def DFT(x, w, N):
         """ Discrete Fourier Transformation(Analysis) of a given real input signal
@@ -809,11 +808,11 @@ class PsychoacousticModel:
         mT = self.maskingThreshold(mX)
 
         # Inverse the filter of masking threshold
-        imT = 1./ (1. + mT)
+        imT = (1. - mT)
 
         # Outer/Middle Ear transfer function on the diagonal
         LTq = 10 ** (pm.MOEar()/20.)
-        LTq = LTq * np.eye(len(LTq))
+        LTq = LTq * np.identity(len(LTq))
 
         # Normalized spectrogram, no need of mean computation
         NMR = 20. * np.log10(np.sum( imT * np.dot(Err, LTq)) + eps)
