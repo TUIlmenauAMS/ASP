@@ -802,7 +802,7 @@ class PsychoacousticModel:
         mXhat, _ = TimeFrequencyDecomposition.STFT(xnhat, np.hanning(self.nfft/2 + 1), self.nfft, self.nfft/4)
 
         # Compute Error
-        Err = np.abs(mX - mXhat) ** 1.2
+        Err = np.abs(mX - mXhat) ** 1.13
 
         # Acquire Masking Threshold
         mT = self.maskingThreshold(mX)
@@ -815,7 +815,7 @@ class PsychoacousticModel:
         LTq = LTq * np.identity(len(LTq))
 
         # Normalized spectrogram, no need of mean computation
-        NMR = 20. * np.log10(np.sum( imT * np.dot(Err, LTq)) + eps)
+        NMR = 20. * np.log10(np.sum(imT * np.dot(Err, LTq)))
 
         return NMR
 
