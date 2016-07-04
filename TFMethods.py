@@ -751,7 +751,12 @@ class PsychoacousticModel:
         Authors      : Gerald Schuller('shl'), S.I. Mimilakis ('mis')
         """
         # Bark Scaling
-        mX = np.dot(np.abs(mX), self.W[:, :self.nfreqs + 1].T)
+        if mX.shape[1] % 2 == 0:
+            nyq = False
+            mX = np.dot(np.abs(mX), self.W[:, :self.nfreqs].T)
+        else :
+            nyq = True
+            mX = np.dot(np.abs(mX), self.W[:, :self.nfreqs + 1].T)
 
         # Parameters
         Numsubbands = mX.shape[1]
@@ -780,7 +785,12 @@ class PsychoacousticModel:
                 mT[n] = mT[n] ** (fd)
 
             maskingThreshold[frameindx, :] = mT
-        maskingThreshold = np.dot(maskingThreshold, self.W_inv[:, :self.nfreqs].T)
+
+        if nyq == False:
+            maskingThreshold = np.dot(maskingThreshold, self.W_inv[:-1, :self.nfreqs].T)
+        else :
+            maskingThreshold = np.dot(maskingThreshold, self.W_inv[:, :self.nfreqs].T)
+
         return maskingThreshold
 
     def NMREval(self, xn, xnhat):
@@ -903,6 +913,9 @@ if __name__ == "__main__":
     w = np.hanning(1025)
     magX, phsX =  TimeFrequencyDecomposition.STFT(kSin, w, 2048, 512)
     magN, phsN =  TimeFrequencyDecomposition.STFT(noise, w, 2048, 512)
+    # MDC(S)T Test
+    y = TimeFrequencyDecomposition.complex_analysis(kSin, 1024)
+    y = np.real(y)
 
     # Usage of psychoacoustic model
     # Initialize the model
@@ -911,6 +924,7 @@ if __name__ == "__main__":
     LTeq = 10 ** (pm.MOEar()/20.)
     # Compute masking threshold
     mt = pm.maskingThreshold(magX)
+    mt_y = pm.maskingThreshold(np.abs(y))
 
     #magN = (1 - mt) * LTeq * (magN - magX)
     sound = TimeFrequencyDecomposition.iSTFT(magX, phsX, 2048, 512)
