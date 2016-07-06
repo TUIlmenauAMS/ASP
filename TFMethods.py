@@ -5,7 +5,7 @@ __copyright__ = 'MacSeNet'
 import math
 import numpy as np
 from scipy.fftpack import fft, ifft, dct, dst
-from scipy.signal import hilbert, resample, decimate, firwin2, freqz
+from scipy.signal import hilbert, resample, decimate, firwin2, freqz, cosine
 from scipy.interpolate import InterpolatedUnivariateSpline as uspline
 
 eps = np.finfo(np.float32).tiny
@@ -258,7 +258,8 @@ class TimeFrequencyDecomposition:
         # Initialize Storing Variables
         Cos = np.zeros((N,lfb), dtype = np.float32)
         Sin = np.zeros((N,lfb), dtype = np.float32)
-        # Generate Synthesis Matrices
+
+        # Generate Matrices
         for k in xrange(0, lfb):
             for n in xrange(0, N):
                 Cos[n, k] = win[k] * np.cos(np.pi/N * (n + 0.5) * (k + 0.5 + N/2)) * np.sqrt(2. / N)
@@ -282,14 +283,16 @@ class TimeFrequencyDecomposition:
             Usage       : y = TimeFrequencyDecomposition.complex_analysis(x, N)
 
         """
-        win = np.sin(np.pi/(2*N)*(np.arange(0,2*N)+0.5))
+        # Parameters and windowing function design
+        win = cosine(2*N, True)
         lfb = len(win)
         nTimeSlots = len(x)/N - 2
 
+        # Initialization
         ycos = np.zeros((len(x)/N, N), dtype = np.float32)
         ysin = np.zeros((len(x)/N, N), dtype = np.float32)
 
-
+        # Analysis Matrices
         Cos, Sin = TimeFrequencyDecomposition.coreModulation(win, N)
 
         # Perform Complex Analysis
@@ -316,13 +319,16 @@ class TimeFrequencyDecomposition:
             Usage       : xrec = TimeFrequencyDecomposition.complex_synthesis(y, N)
 
         """
-        win = np.sin(np.pi/(2*N)*(np.arange(0,2*N)+0.5))
-        Cos, Sin = TimeFrequencyDecomposition.coreModulation(win, N)
-
+        # Parameters and windowing function design
+        win = cosine(2*N, True)
         lfb = len(win)
         nTimeSlots = y.shape[0]
         SignalLength = nTimeSlots * N + 2 * N
 
+        # Synthesis matrices
+        Cos, Sin = TimeFrequencyDecomposition.coreModulation(win, N)
+
+        # Initialization
         zcos = np.zeros((1, SignalLength), dtype = np.float32)
         zsin = np.zeros((1, SignalLength), dtype = np.float32)
 
@@ -381,46 +387,6 @@ class CepstralDecomposition:
 
         return M
 
-class AnalyticFunction:
-    """ A Class that performs the computation of analytic signals using a Hilbert
-        transformation. It can be performed locally on smaller frames(windows)
-        of signals or on the full length signal.
-    """
-
-    @staticmethod
-    def HilbertTransformation(x, mode = 'global', wsz = 1024):
-        """ Computation of analytic function of a signal, via Hilbert
-        transformation.
-        Args:
-            x   : 	(np array)   Magnitude Spectrum
-            mode:   (str)        String input to select the mode of analysis. E.g.:
-                                    'global' : The full signal will be taken into account
-                                    'local'  : The signal will be segmented into small frames
-                                               and then analysed
-            wsz :   (int)        Number of samples to take into account for the
-             					 computation of the analytic function
-        Returns:
-            xa  :   (np ndarray) Numpy array containing the complex analytic function
-                                 of x.
-        """
-        if mode == 'global':
-            return hilbert(x)
-        else:
-            extraSamples = len(x)%wsz
-            x = np.append(x,np.zeros(extraSamples))
-            xa = np.empty((len(x) ,1), dtype = np.complex64)
-            pin = 0
-            pend = len(x) - wsz
-
-            while pin <= pend:
-
-                bufferX = x[pin:pin+wsz]
-                xa[pin:pin+wsz, 0] = hilbert(bufferX)
-
-                pin += wsz
-
-            return xa[:-extraSamples]
-
 class PsychoacousticModel:
     """ Class that performs a very basic psychoacoustic model.
         Bark scaling is based on Perceptual-Coding-In-Python, [Online] :
@@ -436,6 +402,7 @@ class PsychoacousticModel:
         self.max_freq = maxfreq
         self.max_freq = fs/2
         self.nfreqs = N/2
+        self._LTeq = np.zeros(nfilts, dtype = np.float32)
 
         # Type of transformation
         self.type = type
@@ -517,6 +484,11 @@ class PsychoacousticModel:
 
         for i in xrange(nfilts):
           f_bark_mid = min_bark + (i)*step_barks
+
+          # Compute the absolute threshold
+          self._LTeq[i] = 3.64 * (self.bark2hz(f_bark_mid + 1) / 1000.) ** -0.8 - \
+          6.5*np.exp( -0.6 * (self.bark2hz(f_bark_mid + 1) / 1000. - 3.3) ** 2.) + 1e-3*((self.bark2hz(f_bark_mid + 1) / 1000.) ** 4.)
+
           # Linear slopes in log-space (i.e. dB) intersect to trapezoidal window
           lof = np.add(binbarks, (-1*f_bark_mid - 0.5))
           hif = np.add(binbarks, (-1*f_bark_mid + 0.5))
@@ -734,7 +706,6 @@ class PsychoacousticModel:
 
         LTq = 20. * np.log10(np.abs(LTq))
         LTq -= max(LTq)
-
         return LTq[:self.nfft/2 + 1]
 
     def maskingThreshold(self, mX):
@@ -750,7 +721,7 @@ class PsychoacousticModel:
 
         Authors      : Gerald Schuller('shl'), S.I. Mimilakis ('mis')
         """
-        # Bark Scaling
+        # Bark Scaling with the initialized, from the class, matrix W.
         if mX.shape[1] % 2 == 0:
             nyq = False
             mX = np.dot(np.abs(mX), self.W[:, :self.nfreqs].T)
@@ -761,7 +732,7 @@ class PsychoacousticModel:
         # Parameters
         Numsubbands = mX.shape[1]
         timeFrames = mX.shape[0]
-        alpha = 1.2
+        alpha = 1.
         maxb = self.nfilts
         fa = 1.
         fb = 1./(10**(6./20.))
@@ -769,7 +740,9 @@ class PsychoacousticModel:
         fc = maxb/Numsubbands
         fd = 1./alpha
 
+        # Initialization of the matrix containing the masking threshold
         maskingThreshold = np.zeros((timeFrames, Numsubbands))
+
         for frameindx in xrange(mX.shape[0]) :
             mT = np.zeros((Numsubbands))
             for n in xrange(Numsubbands):
@@ -786,6 +759,7 @@ class PsychoacousticModel:
 
             maskingThreshold[frameindx, :] = mT
 
+        # Inverse the bark scaling with the initialized, from the class, matrix W_inv.
         if nyq == False:
             maskingThreshold = np.dot(maskingThreshold, self.W_inv[:-1, :self.nfreqs].T)
         else :
@@ -812,20 +786,21 @@ class PsychoacousticModel:
         mXhat, _ = TimeFrequencyDecomposition.STFT(xnhat, np.hanning(self.nfft/2 + 1), self.nfft, self.nfft/4)
 
         # Compute Error
-        Err = np.abs(mX - mXhat) ** 1.13
+        Err = np.abs(mX - mXhat) ** 2.
+        print(Err.max())
 
         # Acquire Masking Threshold
         mT = self.maskingThreshold(mX)
 
         # Inverse the filter of masking threshold
-        imT = (1. - mT)
+        imT = 1./(mT + eps)
 
         # Outer/Middle Ear transfer function on the diagonal
         LTq = 10 ** (pm.MOEar()/20.)
         LTq = LTq * np.identity(len(LTq))
 
         # Normalized spectrogram, no need of mean computation
-        NMR = 20. * np.log10(np.sum(imT * np.dot(Err, LTq)))
+        NMR = 10. * np.log10(np.sum(imT * np.dot(Err, LTq)))
 
         return NMR
 
@@ -914,8 +889,9 @@ if __name__ == "__main__":
     magX, phsX =  TimeFrequencyDecomposition.STFT(kSin, w, 2048, 512)
     magN, phsN =  TimeFrequencyDecomposition.STFT(noise, w, 2048, 512)
     # MDC(S)T Test
-    y = TimeFrequencyDecomposition.complex_analysis(kSin, 1024)
-    y = np.real(y)
+    #y = TimeFrequencyDecomposition.complex_analysis(mix, 1024)
+    #yrek = TimeFrequencyDecomposition.complex_synthesis(y, 1024)
+    #y = np.real(y)
 
     # Usage of psychoacoustic model
     # Initialize the model
@@ -924,12 +900,13 @@ if __name__ == "__main__":
     LTeq = 10 ** (pm.MOEar()/20.)
     # Compute masking threshold
     mt = pm.maskingThreshold(magX)
-    mt_y = pm.maskingThreshold(np.abs(y))
+    #mt_y = pm.maskingThreshold(np.abs(y))
 
-    #magN = (1 - mt) * LTeq * (magN - magX)
     sound = TimeFrequencyDecomposition.iSTFT(magX, phsX, 2048, 512)
-    maskedNoise = TimeFrequencyDecomposition.iSTFT(magN * (mt), phsN, 2048, 512)
+    sound2 = TimeFrequencyDecomposition.iSTFT(magN*(mt), phsN, 2048, 512)
+
+    #maskedNoise = TimeFrequencyDecomposition.iSTFT(magN * (mt), phsN, 2048, 512)
 
     # Test the NMR Function
-    NMR = pm.NMREval(sound, sound+maskedNoise)
+    NMR = pm.NMREval(sound, sound+sound2)
     print(NMR)
