@@ -307,7 +307,7 @@ class TimeFrequencyDecomposition:
     @staticmethod
     def complex_synthesis(y, N = 1024):
         """
-            Method to compute the resynthesis of the PQMF.
+            Method to compute the resynthesis of the MDCST.
             A complex input matrix is asummed as input, derived from DCT and DST.
 
             Arguments   :
@@ -339,6 +339,40 @@ class TimeFrequencyDecomposition:
 
         xrec = 0.5 * (zcos + zsin)
 
+        return xrec.T
+
+    @staticmethod
+    def real_synthesis(y, N = 1024):
+        """
+            Method to compute the resynthesis of the MDCT.
+            A complex input matrix is asummed as input, derived from DCT typeIV.
+
+            Arguments   :
+                y       : (2D Array) Complex Representation
+
+            Returns     :
+                xrec    : (1D Array) Time domain reconstruction
+
+            Usage       : xrec = TimeFrequencyDecomposition.complex_synthesis(y, N)
+
+        """
+        # Parameters and windowing function design
+        win = cosine(2*N, True)
+        lfb = len(win)
+        nTimeSlots = y.shape[0]
+        SignalLength = nTimeSlots * N + 2 * N
+
+        # Synthesis matrices
+        Cos, _ = TimeFrequencyDecomposition.coreModulation(win, N)
+
+        # Initialization
+        zcos = np.zeros((1, SignalLength), dtype = np.float32)
+
+        # Perform Complex Synthesis
+        for m in xrange(0, nTimeSlots):
+            zcos[0, m * N : m * N + lfb] += np.dot((y[m, :]).T, Cos)
+
+        xrec = zcos
         return xrec.T
 
 class CepstralDecomposition:
@@ -863,15 +897,48 @@ class WDODisjointness:
 
     @staticmethod
     def l1l2_sparsity_measure(mX):
-        """ Method to compute the sparsity of a given time-frequency representation.
+        """ Method to compute the sparsity of a representation. As appears in :
+            -A. Repetti, M.Q. Pham,L. Duval, E. Chouzenoux and J.C. Pesquet, "Euclid in a Taxicab:
+            Sparse Blind Deconvolution with Smoothed l1/l2 Regularization", 2015, IEEE Signal Processing Letters.
+            -N. Hurley and S. Rickard, "Comparing Measures of Sparsity,"
+            in IEEE Transactions on Information Theory, vol. 55, no. 10, pp. 4723-4741, Oct. 2009.
+
             Args:
-                mX    : (2D Array)  Time-frequency decomposition of a mixture signal.
+                mX      : (2D Array)  Time-frequency decomposition of a mixture signal.
 
             Returns:
-                (float) Sparsity Measure
+                (float) : Sparsity Measure
         """
 
         return np.sum(np.abs((mX + eps) / ((np.sqrt(np.sum(mX ** 2.))) + eps)))
+
+    @staticmethod
+    def gini_index(mX):
+        """ Method to compute the sparsity of a given representation. As appears in :
+            -N. Hurley and S. Rickard, "Comparing Measures of Sparsity,"
+            in IEEE Transactions on Information Theory, vol. 55, no. 10, pp. 4723-4741, Oct. 2009.
+
+            Args:
+                mX      : (2D Array)  Time-frequency decomposition of a mixture signal.
+
+            Returns:
+                GI      : (1D Array)  Sparsity Measure
+        """
+
+        GI = np.zeros(mX.shape[0], dtype = np.float32)
+        for frame in xrange(0, mX.shape[0]):
+            vector = mX[frame, :]
+            sortedVector = np.sort(np.abs(vector))
+            l1norm = np.sum(sortedVector) + eps
+            if l1norm == 0 or l1norm <= eps:
+                GI[frame] = 0
+            else :
+                cgi = 0.
+                k = np.arange(1, len(sortedVector)+1)
+                cgi = (sortedVector[k - 1]/l1norm) * ((len(sortedVector) - k + 0.5)/len(sortedVector))
+                GI[frame] = (1. - 2.* np.sum(cgi))
+
+        return GI
 
 if __name__ == "__main__":
     import IOMethods as IO
