@@ -428,14 +428,14 @@ blockmemory_sin = np.zeros((overlap, N), dtype = np.float32)
 blockmemorysyn_sin = np.zeros((overlap, N), dtype = np.float32)
 
 # Analysis/Synthesis Matrices
-FsCos = hs2Fs3d_fast(qmfwin, N)
-FsSin = hs2Fs3d_sinmod_fast(qmfwin, N)
-FaCos = ha2Fa3d_fast(qmfwin, N)
-FaSin = ha2Fa3d_sinmod_fast(qmfwin, N)
+FsCos = hs2Fs3d_fast(qmfwin * np.sum(qmfwin), N)        # Undo L1-normalization
+FsSin = hs2Fs3d_sinmod_fast(qmfwin * np.sum(qmfwin), N) # Undo L1-normalization
+FaCos = ha2Fa3d_fast(qmfwin/np.sum(qmfwin), N)          # L1-normalization
+FaSin = ha2Fa3d_sinmod_fast(qmfwin/np.sum(qmfwin), N)   # L1-normalization
 
 class PQMFAnalysis():
     """
-        Implements a real time Pseudo Quandrature Mirror Filter Bank (Analysis part).
+        Implements a real time Pseudo Quadrature Mirror Filter Bank (Analysis part).
         "Real time" means: it reads a block of N samples in and generates a block of N spectral samples from the QMF.
         The QMF implementaion uses internal memory to accomodate the window overlap.
         Gerald Schuller, gerald.schuller@tu-ilmenau.de, January 2016.
