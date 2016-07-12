@@ -1,6 +1,6 @@
 # -*- coding: utf-8 -*-
-__author__ = 'S.I. Mimilakis'
-__copyright__ = 'MacSeNet'
+__author__ = 'S.I. Mimilakis, G. Schuller'
+__copyright__ = 'MacSeNet, TU Ilmenau'
 
 import IOMethods as IO
 import TFMethods as TF
@@ -19,11 +19,11 @@ gain = 0.
 
 # Reading
 # File Reading
-#x, fs = IO.AudioIO.audioRead('testFiles/dissection.mp3', mono = True)
-#x = x[0:882000] * 0.1
-# Cosine test
-x = np.cos(np.arange(88200) * (1000.0 * (3.1415926 * 2.0) / 44100)) * 0.01
-fs = 44100
+x, fs = IO.AudioIO.audioRead('testFiles/dissection.mp3', mono = True)
+x = x[0:882000] * 0.1
+# Cosine testq
+#x = np.cos(np.arange(88200) * (1000.0 * (3.1415926 * 2.0) / 44100)) * 0.01
+#fs = 44100
 # Generate noise. Scaling was found experimentally to perfectly match the masking threshold magnitude.
 noise = np.random.uniform(-30., 30., len(x))
 
@@ -35,19 +35,8 @@ w = w / sum(w)
 # Initialize psychoacoustic mode
 pm = TF.PsychoacousticModel(N = N, fs = fs, nfilts = 64)
 
-
 # Visual stuff
 option = 'pygame'
-# Using matplotlib
-
-plt.ion()
-ax = plt.axes(xlim=(0, wsz), ylim=(-120, 0))
-line, = plt.plot(np.bartlett(wsz), label = 'Signal')
-line2, = plt.plot(np.bartlett(wsz), label = 'Masking Threshold')
-plt.xlabel('Frequency sub-bands')
-plt.ylabel('dB FS')
-plt.legend(handles=[line, line2])
-plt.show()
 
 # Pygame visual handles
 pygame.init()
@@ -57,16 +46,27 @@ color2 = pygame.Color(0, 255, 0, 0)
 background_color = pygame.Color(0, 0, 0, 0)
 screen = pygame.display.set_mode((wsz, 480))
 screen.fill(background_color)
-surface = pygame.display.set_mode((wsz, 480))
-surface.fill(background_color)
-surface2 = pygame.display.set_mode((wsz, 480))
-surface2.fill(background_color)
 pygame.display.flip()
 
+# Display  Labels
+font = pygame.font.Font(None, 24)
+xlabel = font.render("Frequency sub-bands",1, (100, 100, 250))
+ylabel = font.render("Magnitude in dB FS",1, (100, 100, 250))
+ylabel = pygame.transform.rotate(ylabel, 90)
 
+if option == 'matplotlib':
+# Using matplotlib
+    plt.ion()
+    ax = plt.axes(xlim=(0, wsz), ylim=(-120, 0))
+    line, = plt.plot(np.bartlett(wsz), label = 'Signal')
+    line2, = plt.plot(np.bartlett(wsz), label = 'Masking Threshold')
+    plt.xlabel('Frequency sub-bands')
+    plt.ylabel('dB FS')
+    plt.legend(handles=[line, line2])
+    plt.show()
 
 # Main Loop
-iterations = 1
+
 run = True
 while run == True:
     # Initialize sound pointers and buffers
@@ -108,14 +108,15 @@ while run == True:
                 # Matplotlib
                 line.set_ydata(20. * np.log10(b_mX[0, :-1] + 1e-16))
                 # Check for scaling the noise!
-                #line.set_ydata(20. * np.log10(mt[0, :-1]*nX[:-1] + 1e-16))
                 line2.set_ydata(20. * np.log10(mt[0, :-1] + 1e-16))
                 plt.draw()
                 plt.pause(0.00001)
 
             else :
                 # Pygame
-                surface.fill(background_color)
+                screen.fill(background_color)
+                prv_pos = (0, 480)
+                prv_pos2 = (0, 480)
                 for n in range(0, wsz):
                     val = 20. * np.log10(b_mX[0, n] + 1e-16)
                     val2 = 20. * np.log10(mt[0, n] + 1e-16)
@@ -123,12 +124,16 @@ while run == True:
                     val2/= -120
                     val *= 480
                     val2 *= 480
-                    surface.set_at((n, np.int(val2)), color)
-                    surface2.set_at((n, np.int(val)), color2)
+                    position = (n, int(val))
+                    position2 = (n, int(val2))
+                    pygame.draw.line(screen, color, prv_pos, position)
+                    pygame.draw.line(screen, color2, prv_pos2, position2)
+                    prv_pos = position
+                    prv_pos2 = position2
 
                 # Print the surface
-                screen.blit(surface, (0, 0))
-                screen.blit(surface2, (0, 0))
+                screen.blit(xlabel, (840, 450))
+                screen.blit(ylabel, (0, 10))
                 # Display
                 pygame.display.flip()
 
