@@ -19,13 +19,13 @@ gain = 0.
 
 # Reading
 # File Reading
-x, fs = IO.AudioIO.audioRead('testFiles/dissection.mp3', mono = True)
-x = x[0:882000] * 0.1
+x, fs = IO.AudioIO.wavRead('testFiles/mixed.wav', mono = True)
+x *= 0.1
 # Cosine testq
-#x = np.cos(np.arange(88200) * (1000.0 * (3.1415926 * 2.0) / 44100)) * 0.01
+#x = np.cos(np.arange(88200) * (1000.0 * (3.1415926 * 2.0) / 44100)) * 0.1
 #fs = 44100
 # Generate noise. Scaling was found experimentally to perfectly match the masking threshold magnitude.
-noise = np.random.uniform(-30., 30., len(x))
+noise = np.random.uniform(-30., 30., (len(x), 1))
 
 # STFT/iSTFT Test
 w = np.bartlett(wsz)
@@ -81,6 +81,9 @@ while run == True:
 
     # For less frequent plotting to avoide buffer underruns
     indx = 0
+
+    # Reshaping the signal
+    x = x.reshape(len(x), 1)
 
     # Streaming
     p = pyaudio.PyAudio()
@@ -138,8 +141,8 @@ while run == True:
                 pygame.display.flip()
 
         # Acquire Segment
-        xSeg = x[pin:pin+wsz]
-        nSeg = noise[pin:pin+wsz]
+        xSeg = x[pin:pin+wsz, 0]
+        nSeg = noise[pin:pin+wsz, 0]
 
         # Perform DFT on segment
         mX, pX = TF.TimeFrequencyDecomposition.DFT(xSeg, w, N)
