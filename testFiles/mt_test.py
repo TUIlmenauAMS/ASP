@@ -141,6 +141,8 @@ while run == True:
                 screen.blit(ylabel, (0, 10))
                 screen.blit(legendA, (780, 0))
                 screen.blit(legendB, (780, 15))
+                offset = font.render("Masking Threshold Offset in dB: " + str(gain), 1, (0, 250, 0))
+                screen.blit(offset, (400, 0))
                 # Display
                 pygame.display.flip()
 
