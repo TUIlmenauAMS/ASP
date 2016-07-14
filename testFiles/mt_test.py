@@ -50,8 +50,10 @@ pygame.display.flip()
 
 # Display  Labels
 font = pygame.font.Font(None, 24)
-xlabel = font.render("Frequency sub-bands",1, (100, 100, 250))
-ylabel = font.render("Magnitude in dB FS",1, (100, 100, 250))
+xlabel = font.render("Frequency sub-bands", 1, (100, 100, 250))
+ylabel = font.render("Magnitude in dB FS", 1, (100, 100, 250))
+legendA = font.render("Magnitude Spectrum", 1, (250, 0, 0))
+legendB = font.render("Estimated masking threshold", 1, (0, 250, 0))
 ylabel = pygame.transform.rotate(ylabel, 90)
 
 if option == 'matplotlib':
@@ -137,6 +139,8 @@ while run == True:
                 # Print the surface
                 screen.blit(xlabel, (840, 450))
                 screen.blit(ylabel, (0, 10))
+                screen.blit(legendA, (780, 0))
+                screen.blit(legendB, (780, 15))
                 # Display
                 pygame.display.flip()
 
