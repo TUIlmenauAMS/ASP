@@ -5,7 +5,7 @@ __copyright__ = 'MacSeNet'
 import math
 import numpy as np
 from scipy.fftpack import fft, ifft, dct, dst
-from scipy.signal import hilbert, resample, decimate, firwin2, freqz, cosine
+from scipy.signal import firwin2, freqz, cosine, hanning
 from scipy.interpolate import InterpolatedUnivariateSpline as uspline
 
 eps = np.finfo(np.float32).tiny
@@ -774,6 +774,9 @@ class PsychoacousticModel:
         fc = maxb/Numsubbands
         fd = 1./alpha
 
+        # Correction gain coefficient derived from unofficial experiments
+        cGain = 11.
+
         # Initialization of the matrix containing the masking threshold
         maskingThreshold = np.zeros((timeFrames, Numsubbands))
 
@@ -791,7 +794,7 @@ class PsychoacousticModel:
 
                 mT[n] = mT[n] ** (fd)
 
-            maskingThreshold[frameindx, :] = mT
+            maskingThreshold[frameindx, :] = mT * (10. ** (cGain/20.))
 
         # Inverse the bark scaling with the initialized, from the class, matrix W_inv.
         if nyq == False:
@@ -816,8 +819,8 @@ class PsychoacousticModel:
         - J. Nikunen and T. Virtanen, "Noise-to-mask ratio minimization by weighted non-negative matrix factorization," in
          Acoustics Speech and Signal Processing (ICASSP), 2010 IEEE International Conference on, Dallas, TX, 2010, pp. 25-28.
         """
-        mX, _ = TimeFrequencyDecomposition.STFT(xn, np.ones(self.nfft/2 + 1), self.nfft, self.nfft/2)
-        mXhat, _ = TimeFrequencyDecomposition.STFT(xnhat, np.ones(self.nfft/2 + 1), self.nfft, self.nfft/2)
+        mX, _ = TimeFrequencyDecomposition.STFT(xn, hanning(self.nfft/2 + 1), self.nfft, self.nfft/4)
+        mXhat, _ = TimeFrequencyDecomposition.STFT(xnhat, hanning(self.nfft/2 + 1), self.nfft, self.nfft/4)
 
         # Compute Error
         Err = np.abs(mX - mXhat) ** 2.
@@ -833,7 +836,7 @@ class PsychoacousticModel:
         LTq = LTq * np.identity(len(LTq))
 
         # NMR computation
-        NMR = 10. * np.log10(np.mean((imT * np.dot(Err, LTq))))
+        NMR = 10. * np.log10((1./mX.shape[0])*np.sum((imT * np.dot(Err, LTq))))
 
         return NMR
 
@@ -944,16 +947,15 @@ if __name__ == "__main__":
     import IOMethods as IO
     import matplotlib.pyplot as plt
     np.random.seed(218)
-
     # Test
-    kSin = np.cos(np.arange(88200) * (1000.0 * (3.1415926 * 2.0) / 44100)) * 0.5
-    #mix, fs = IO.AudioIO.audioRead('testFiles/cmente.mp3', mono = True)
-    #mix = mix[44100*25:44100*25 + 882000] * 0.5
-    noise = np.random.uniform(-30., 30., len(kSin))
+    #kSin = np.cos(np.arange(88200) * (1000.0 * (3.1415926 * 2.0) / 44100)) * 0.5
+    mix, fs = IO.AudioIO.audioRead('testFiles/cmente.mp3', mono = True)
+    mix = mix[44100*25:44100*25 + 882000] * 0.25
+    noise = np.random.uniform(-30., 30., len(mix))
 
     # STFT/iSTFT Test
     w = np.hanning(1025)
-    magX, phsX =  TimeFrequencyDecomposition.STFT(kSin, w, 2048, 512)
+    magX, phsX =  TimeFrequencyDecomposition.STFT(mix, w, 2048, 512)
     magN, phsN =  TimeFrequencyDecomposition.STFT(noise, w, 2048, 512)
     # MDC(S)T Test
     #y = TimeFrequencyDecomposition.complex_analysis(mix, 1024)
@@ -970,10 +972,8 @@ if __name__ == "__main__":
     #mt_y = pm.maskingThreshold(np.abs(y))
 
     sound = TimeFrequencyDecomposition.iSTFT(magX, phsX, 2048, 512)
-    sound2 = TimeFrequencyDecomposition.iSTFT(magN, phsN, 2048, 512)
-
-    maskedNoise = TimeFrequencyDecomposition.iSTFT(magN * (mt), phsN, 2048, 512)
+    sound2 = TimeFrequencyDecomposition.iSTFT(magN * (mt), phsN, 2048, 512)
 
     # Test the NMR Function
-    NMR = pm.NMREval(sound, sound+maskedNoise)
+    NMR = pm.NMREval(sound, sound+sound2)
     print(NMR)
