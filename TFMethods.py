@@ -766,16 +766,16 @@ class PsychoacousticModel:
         # Parameters
         Numsubbands = mX.shape[1]
         timeFrames = mX.shape[0]
-        alpha = 1.
+        alpha = 0.6
         maxb = self.nfilts
-        fa = 1./26             # Fine-tuned
-        fb = 1./(10**(6./20.))
-        fbb = 1./(10**(25./20.))
+        fa = 1./(10 ** (14.5/20.) * 10 ** (np.arange(0,75)/3/20.)) # Slides : Psychoacoustics WS2015-16 Audio-coding Lecture S:4-42
+        fb = 1./(10**(7.5/20.))
+        fbb = 1./(10**(26./20.))
         fc = maxb/Numsubbands
         fd = 1./alpha
 
         # Correction gain coefficient derived from unofficial experiments
-        cGain = 11.
+        cGain = 0.
 
         # Initialization of the matrix containing the masking threshold
         maskingThreshold = np.zeros((timeFrames, Numsubbands))
@@ -784,13 +784,10 @@ class PsychoacousticModel:
             mT = np.zeros((Numsubbands))
             for n in xrange(Numsubbands):
                 for m in xrange(0, n):
-                    mT[n] += (mX[frameindx, m]*fa * (fb ** ((n - m) * fc))) ** alpha
-
-                # Simultaneous masking
-                mT[n] += (mX[frameindx, n] * fa)
+                    mT[n] += (mX[frameindx, m]*fa[m] * (fb ** ((n - m) * fc))) ** alpha
 
                 for m in xrange(n+1, Numsubbands):
-                    mT[n] += (mX[frameindx, m]*fa * (fbb ** ((m - n) * fc))) ** alpha
+                    mT[n] += (mX[frameindx, m]*fa[m] * (fbb ** ((m - n) * fc))) ** alpha
 
                 mT[n] = mT[n] ** (fd)
 
@@ -976,4 +973,4 @@ if __name__ == "__main__":
 
     # Test the NMR Function
     NMR = pm.NMREval(sound, sound+sound2)
-    print(NMR)
+    #print(NMR)
