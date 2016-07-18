@@ -1,7 +1,10 @@
 # -*- coding: utf-8 -*-
 __author__ = 'S.I. Mimilakis, G. Schuller'
 __copyright__ = 'MacSeNet, TU Ilmenau'
-
+import sys, os
+current_dir = os.path.dirname(os.path.realpath(__file__))
+sys.path.insert(0, current_dir + '..')
+print(current_dir)
 import IOMethods as IO
 import TFMethods as TF
 import numpy as np
@@ -111,7 +114,7 @@ while run == True:
                     gain -= 1.
 
         # Visual stuff
-        if indx % 10 == 0:
+        if indx % 30 == 0:
             if option == 'matplotlib' :
                 # Matplotlib
                 line.set_ydata(20. * np.log10(b_mX[0, :-1] + 1e-16))
@@ -147,7 +150,7 @@ while run == True:
                     prv_pos3 = position3
 
                 # Print the surface
-                screen.blit(xlabel, (895, 460))
+                screen.blit(xlabel, (895, 470))
                 screen.blit(ylabel, (0, 5))
                 screen.blit(legendA, (800, 0))
                 screen.blit(legendB, (800, 15))
