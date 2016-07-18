@@ -33,7 +33,7 @@ w = np.bartlett(wsz)
 w = w / sum(w)
 
 # Initialize psychoacoustic mode
-pm = TF.PsychoacousticModel(N = N, fs = fs, nfilts = 64)
+pm = TF.PsychoacousticModel(N = N, fs = fs, nfilts = 75)
 
 # Visual stuff
 option = 'pygame'
@@ -43,10 +43,13 @@ pygame.init()
 pygame.display.set_caption("Masking Threshold Visualization")
 color = pygame.Color(255, 0, 0, 0)
 color2 = pygame.Color(0, 255, 0, 0)
+color3 = pygame.Color(0, 110, 0, 0)
 background_color = pygame.Color(0, 0, 0, 0)
-screen = pygame.display.set_mode((wsz, 480))
+screen = pygame.display.set_mode((wsz + 40, 480))
 screen.fill(background_color)
 pygame.display.flip()
+dBScales = np.linspace(-120, 0, 25)
+dBpos = (dBScales/-120 * 480)
 
 # Display  Labels
 font = pygame.font.Font(None, 24)
@@ -68,13 +71,13 @@ if option == 'matplotlib':
     plt.show()
 
 # Main Loop
-
 run = True
 while run == True:
     # Initialize sound pointers and buffers
     pin = 0
     pend = x.size - wsz - hop
     b_mX = np.zeros((1, wsz + 1), dtype = np.float32)
+    b_nX = np.zeros((1, wsz + 1), dtype = np.float32)
     mt = np.zeros((1, wsz + 1), dtype = np.float32)
     output_buffer = np.zeros((1, wsz), dtype = np.float32)
     ola_buffer = np.zeros((1, wsz+hop), dtype = np.float32)
@@ -120,29 +123,43 @@ while run == True:
             else :
                 # Pygame
                 screen.fill(background_color)
-                prv_pos = (0, 480)
-                prv_pos2 = (0, 480)
-                for n in range(0, wsz):
+                prv_pos = (60, 480)
+                prv_pos2 = (60, 480)
+                prv_pos3 = (60, 480)
+                for n in xrange(0, wsz):
                     val = 20. * np.log10(b_mX[0, n] + 1e-16)
                     val2 = 20. * np.log10(mt[0, n] + 1e-16)
+                    val3 = 20. * np.log10(b_nX[0, n] * mt[0, n] + 1e-16)
+                    val3 /= -120
                     val /= -120
                     val2/= -120
                     val *= 480
                     val2 *= 480
-                    position = (n, int(val))
-                    position2 = (n, int(val2))
+                    val3 *= 480
+                    position = (n + 60, int(val))
+                    position2 = (n + 60, int(val2))
+                    position3 = (n + 60, int(val3))
                     pygame.draw.line(screen, color, prv_pos, position)
                     pygame.draw.line(screen, color2, prv_pos2, position2)
+                    pygame.draw.line(screen, color3, prv_pos3, position3)
                     prv_pos = position
                     prv_pos2 = position2
+                    prv_pos3 = position3
 
                 # Print the surface
-                screen.blit(xlabel, (840, 450))
-                screen.blit(ylabel, (0, 10))
-                screen.blit(legendA, (780, 0))
-                screen.blit(legendB, (780, 15))
+                screen.blit(xlabel, (895, 460))
+                screen.blit(ylabel, (0, 5))
+                screen.blit(legendA, (800, 0))
+                screen.blit(legendB, (800, 15))
                 offset = font.render("Masking Threshold Offset in dB: " + str(gain), 1, (0, 250, 0))
-                screen.blit(offset, (400, 0))
+                helptext = font.render("(Adjust the threshold by pressing 'Up' & 'Down' Arrow keys)", 1, (0, 250, 0))
+                screen.blit(offset, (300, 0))
+                screen.blit(helptext, (300, 15))
+
+                for n2 in xrange(len(dBpos)):
+                    dB = font.render(str(np.int(dBScales[n2])), 1, (0,120,120))
+                    screen.blit(dB, (20, int(dBpos[n2])))
+
                 # Display
                 pygame.display.flip()
 
@@ -156,7 +173,7 @@ while run == True:
 
         # Set it to buffer
         b_mX[0, :] = mX
-
+        b_nX[0, :] = nX
         # Masking threshold
         mt = pm.maskingThreshold(b_mX) * (10**(gain/20.))
 
