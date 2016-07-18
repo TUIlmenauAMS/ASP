@@ -150,7 +150,7 @@ while run == True:
                     prv_pos3 = position3
 
                 # Print the surface
-                screen.blit(xlabel, (895, 470))
+                screen.blit(xlabel, (895, 460))
                 screen.blit(ylabel, (0, 5))
                 screen.blit(legendA, (800, 0))
                 screen.blit(legendB, (800, 15))
