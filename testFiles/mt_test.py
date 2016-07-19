@@ -3,8 +3,8 @@ __author__ = 'S.I. Mimilakis, G. Schuller'
 __copyright__ = 'MacSeNet, TU Ilmenau'
 import sys, os
 current_dir = os.path.dirname(os.path.realpath(__file__))
-print(current_dir + '/..')
 sys.path.insert(0, current_dir + '/..')
+
 import IOMethods as IO
 import TFMethods as TF
 import numpy as np
@@ -36,7 +36,7 @@ w = np.bartlett(wsz)
 w = w / sum(w)
 
 # Initialize psychoacoustic mode
-pm = TF.PsychoacousticModel(N = N, fs = fs, nfilts = 75)
+pm = TF.PsychoacousticModel(N = N, fs = fs, nfilts = 60)
 
 # Visual stuff
 option = 'pygame'
@@ -114,7 +114,7 @@ while run == True:
                     gain -= 1.
 
         # Visual stuff
-        if indx % 30 == 0:
+        if indx % 10 == 0:
             if option == 'matplotlib' :
                 # Matplotlib
                 line.set_ydata(20. * np.log10(b_mX[0, :-1] + 1e-16))
