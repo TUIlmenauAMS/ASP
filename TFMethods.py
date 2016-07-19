@@ -447,6 +447,14 @@ class PsychoacousticModel:
         # Computing the inverse matrix for backward Bark transformation
         self.W_inv = self.bark2mX()
 
+        # Non-linear superposition parameters
+        self._alpha = 0.6
+        self._maxb = 1./self.nfilts
+        self._fa = 1./(10 ** (14.5/20.) * 10 ** (12./20.))
+        self._fb = 1./(10**(7.5/20.))
+        self._fbb = 1./(10**(26./20.))
+        self._fd = 1./self._alpha
+
     def mX2Bark(self, type):
         """ Method to perform the transofrmation.
         Args :
@@ -766,16 +774,7 @@ class PsychoacousticModel:
         # Parameters
         Numsubbands = mX.shape[1]
         timeFrames = mX.shape[0]
-        alpha = 0.6
-        maxb = self.nfilts
-        fa = 1./(10 ** (14.5/20.) * 10 ** (12./20.))
-        fb = 1./(10**(7.5/20.))
-        fbb = 1./(10**(26./20.))
-        fc = maxb/Numsubbands
-        fd = 1./alpha
-
-        # Correction gain coefficient derived from unofficial experiments
-        cGain = 0.
+        fc = self._maxb*Numsubbands
 
         # Initialization of the matrix containing the masking threshold
         maskingThreshold = np.zeros((timeFrames, Numsubbands))
@@ -784,14 +783,14 @@ class PsychoacousticModel:
             mT = np.zeros((Numsubbands))
             for n in xrange(Numsubbands):
                 for m in xrange(0, n):
-                    mT[n] += (mX[frameindx, m]*fa * (fb ** ((n - m) * fc))) ** alpha
+                    mT[n] += (mX[frameindx, m]*self._fa * (self._fb ** ((n - m) * fc))) ** self._alpha
 
                 for m in xrange(n+1, Numsubbands):
-                    mT[n] += (mX[frameindx, m]*fa * (fbb ** ((m - n) * fc))) ** alpha
+                    mT[n] += (mX[frameindx, m]*self._fa * (self._fbb ** ((m - n) * fc))) ** self._alpha
 
-                mT[n] = mT[n] ** (fd)
+                mT[n] = mT[n] ** (self._fd)
 
-            maskingThreshold[frameindx, :] = mT * (10. ** (cGain/20.))
+            maskingThreshold[frameindx, :] = mT
 
         # Inverse the bark scaling with the initialized, from the class, matrix W_inv.
         if nyq == False:
