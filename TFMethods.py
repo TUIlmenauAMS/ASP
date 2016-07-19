@@ -768,7 +768,7 @@ class PsychoacousticModel:
         timeFrames = mX.shape[0]
         alpha = 0.6
         maxb = self.nfilts
-        fa = 1./(10 ** (14.5/20.) * 10 ** (np.arange(0,75)/3/20.)) # Slides : Psychoacoustics WS2015-16 Audio-coding Lecture S:4-42
+        fa = 1./(10 ** (14.5/20.) * 10 ** (12./20.))
         fb = 1./(10**(7.5/20.))
         fbb = 1./(10**(26./20.))
         fc = maxb/Numsubbands
@@ -784,10 +784,10 @@ class PsychoacousticModel:
             mT = np.zeros((Numsubbands))
             for n in xrange(Numsubbands):
                 for m in xrange(0, n):
-                    mT[n] += (mX[frameindx, m]*fa[m] * (fb ** ((n - m) * fc))) ** alpha
+                    mT[n] += (mX[frameindx, m]*fa * (fb ** ((n - m) * fc))) ** alpha
 
                 for m in xrange(n+1, Numsubbands):
-                    mT[n] += (mX[frameindx, m]*fa[m] * (fbb ** ((m - n) * fc))) ** alpha
+                    mT[n] += (mX[frameindx, m]*fa * (fbb ** ((m - n) * fc))) ** alpha
 
                 mT[n] = mT[n] ** (fd)
 
