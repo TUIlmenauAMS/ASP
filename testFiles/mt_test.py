@@ -115,6 +115,10 @@ while run == True:
 
         # Visual stuff
         if indx % 10 == 0:
+            # Maximum quantization rate computation
+            bc = (np.log2( (b_mX[0, :] + 1e-16)/(mt[0, :] + 1e-16)))
+            bc = np.int(np.mean(bc[bc >= 0 ]))
+
             if option == 'matplotlib' :
                 # Matplotlib
                 line.set_ydata(20. * np.log10(b_mX[0, :-1] + 1e-16))
@@ -155,9 +159,11 @@ while run == True:
                 screen.blit(legendA, (800, 0))
                 screen.blit(legendB, (800, 15))
                 offset = font.render("Masking Threshold Offset in dB: " + str(gain), 1, (0, 250, 0))
+                bpc = font.render("Average bits per subband: " + str(bc), 1, (190, 160, 110))
                 helptext = font.render("(Adjust the threshold by pressing 'Up' & 'Down' Arrow keys)", 1, (0, 250, 0))
                 screen.blit(offset, (300, 0))
                 screen.blit(helptext, (300, 15))
+                screen.blit(bpc, (300, 30))
 
                 for n2 in xrange(len(dBpos)):
                     dB = font.render(str(np.int(dBScales[n2])), 1, (0,120,120))
