@@ -54,7 +54,7 @@ class AudioIO:
 		pass
 
 	@staticmethod
-	def audioRead(fileName, mono=False, startSec=None, endSec=None):
+	def audioRead(fileName, mono=False):
 		""" Function to load audio files such as *.mp3, *.au, *.wma & *.aiff.
 			It first converts them to .wav and reads them with the methods below.
 			Currently, it uses a static build of ffmpeg.
@@ -62,8 +62,6 @@ class AudioIO:
         Args:
             fileName:       (str)       Absolute filename of WAV file
             mono:           (bool)      Switch if samples should be converted to mono
-            startSec:       (float)     Segment start time in seconds (if None, segment starts at the beginning of the WAV file)
-            endSec:         (float)     Segment end time in seconds (if None, segment ends at the end of the WAV file)
         Returns:
             samples:        (np array)  Audio samples (between [-1,1]
                                         (if stereo: numSamples x numChannels,
@@ -109,28 +107,28 @@ class AudioIO:
 			print(fileName[convDict['mp3'][1]:])
 			modfileName = os.path.join(os.path.abspath(fileName[:convDict['mp3'][1]] + 'wav'))
 			subprocess.call(convDict['mp3'][0]+modfileName, shell = True,  stdout=AudioIO.FNULL, stderr=subprocess.STDOUT)
-			samples, sampleRate = AudioIO.wavRead(modfileName, mono, startSec, endSec)
+			samples, sampleRate = AudioIO.wavRead(modfileName, mono)
 			os.remove(modfileName)
 
 		elif fileName[convDict['au'][1]:] == 'au':
 			print(fileName[convDict['au'][1]:])
 			modfileName = os.path.join(os.path.abspath(fileName[:convDict['au'][1]] + 'wav'))
 			subprocess.call(convDict['au'][0]+modfileName, shell = True,  stdout=AudioIO.FNULL, stderr=subprocess.STDOUT)
-			samples, sampleRate = AudioIO.wavRead(modfileName, mono, startSec, endSec)
+			samples, sampleRate = AudioIO.wavRead(modfileName, mono)
 			os.remove(modfileName)
 
 		elif fileName[convDict['wma'][1]:] == 'wma':
 			print(fileName[convDict['wma'][1]:])
 			modfileName = os.path.join(os.path.abspath(fileName[:convDict['wma'][1]] + 'wav'))
 			subprocess.call(convDict['wma'][0]+modfileName, shell = True,  stdout=AudioIO.FNULL, stderr=subprocess.STDOUT)
-			samples, sampleRate = AudioIO.wavRead(modfileName, mono, startSec, endSec)
+			samples, sampleRate = AudioIO.wavRead(modfileName, mono)
 			os.remove(modfileName)
 
 		elif fileName[convDict['aiff'][1]:] == 'aiff':
 			print(fileName[convDict['aiff'][1]:])
 			modfileName = os.path.join(os.path.abspath(fileName[:convDict['aiff'][1]] + 'wav'))
 			subprocess.call(convDict['aiff'][0]+modfileName, shell = True,  stdout=AudioIO.FNULL, stderr=subprocess.STDOUT)
-			samples, sampleRate = AudioIO.wavRead(modfileName, mono, startSec, endSec)
+			samples, sampleRate = AudioIO.wavRead(modfileName, mono)
 			os.remove(modfileName)
 
 		else :
@@ -214,14 +212,12 @@ class AudioIO:
 			raise Exception('This format is not supported.')
 
 	@staticmethod
-	def wavRead(fileName, mono=False, startSec=None, endSec=None):
+	def wavRead(fileName, mono=False):
 		""" Function to load WAV file.
 
         Args:
             fileName:       (str)       Absolute filename of WAV file
             mono:           (bool)      Switch if samples should be converted to mono
-            startSec:       (float)     Segment start time in seconds (if None, segment starts at the beginning of the WAV file)
-            endSec:         (float)     Segment end time in seconds (if None, segment ends at the end of the WAV file)
         Returns:
             samples:        (np array)  Audio samples (between [-1,1]
                                         (if stereo: numSamples x numChannels,
@@ -248,25 +244,6 @@ class AudioIO:
 		if mono:
 			if samples.ndim == 2 and samples.shape[1] > 1:
 				samples = (samples[:, 0] + samples[:, 1])*0.5
-
-        # segment selection
-		songLenSamples = samples.shape[0]
-		if startSec is None:
-			startIdx = 0
-		else:
-			startIdx = int(round(startSec*sampleRate))
-		if endSec is None:
-			endIdx = songLenSamples-1
-		else:
-			endIdx = int(round(endSec*sampleRate))
-		if startIdx < 0 or startIdx > songLenSamples:
-			raise Exception("Segment start sample index out of song boundaries!")
-		if endIdx < startIdx or endIdx > songLenSamples:
-			raise Exception("Segment end sample index out of song boundaries!")
-		if samples.ndim == 1:
-			samples = samples[startIdx:endIdx]
-		else:
-			samples = samples[startIdx:endIdx, :]
 
 		return samples, sampleRate
 
@@ -378,123 +355,19 @@ class AudioIO:
 		player = None
 		return None
 
-	@staticmethod
-	def energyNormalisation(x1, x2, wsz = 1024):
-		""" Function to perform energy normalisation of two audio signals,
-		based on envelopes acquired by Hilbert transformation.
-
-        Args:
-            x1	:   (np array)      Absolute filename of WAV file
-            x2	:   (np array)      Switch if samples should be converted to mono
-            wsz :	(int)			Number of samples to take into account for the
-             						computation of the analytic function. If set
-             						to zero the whole signal will be analysed
-             						at once.
-        Returns:
-			y1	:	(np array)	    Energy normalised output signal
-			y2	:	(np array)	    Energy normalised output signal
-        """
-		x1.shape = (len(x1), 1)
-		x2.shape = (len(x2), 1)
-
-		if wsz == 0:
-			xa1 = AF.HilbertTransformation(x1, mode = 'global', wsz = wsz)
-			xa2 = AF.HilbertTransformation(x2, mode = 'global', wsz = wsz)
-
-			energy1 = np.mean(np.abs(xa1) ** 2.0)
-			energy2 = np.mean(np.abs(xa2) ** 2.0)
-
-			if energy1 > energy2:
-				rt = energy1/energy2
-				y2 = x2 * rt
-				y1 = x1
-			else :
-				rt = energy2/energy1
-				y1 = x1 * rt
-				y2 = x2
-
-			y1 = AudioIO.twoSideClip(y1, -1.0, 1.0)
-			y2 = AudioIO.twoSideClip(y2, -1.0, 1.0)
-
-		else:
-
-			if len(x1) > len(x2):
-				x1 = np.append(x1, np.zeros(len(x1)%wsz))
-				x2 = np.append(x2, np.zeros(len(x1) - len(x2)))
-			else:
-				x2 = np.append(x2, np.zeros(len(x2)%wsz))
-				x1 = np.append(x1, np.zeros(len(x2) - len(x1)))
-
-			xa1 = AF.HilbertTransformation(x1, mode = 'local', wsz = wsz)
-			xa2 = AF.HilbertTransformation(x2, mode = 'local', wsz = wsz)
-
-			y1 = np.empty(len(x1))
-			y2 = np.empty(len(x2))
-
-			energy1 = np.abs(xa1)
-			energy2 = np.abs(xa2)
-
-			pin = 0
-			pend = len(x1) - wsz
-
-			while pin <= pend :
-
-				lclE1 = np.mean(energy1[pin : pin + wsz])
-				lclE2 = np.mean(energy2[pin : pin + wsz])
-
-				if (lclE1 > lclE2) and (lclE1 > 1e-4) and (lclE2 > 1e-4):
-					rt = lclE1/lclE2
-					bufferY2 = x2[pin : pin + wsz] * rt
-					bufferY1 = x1[pin : pin + wsz]
-
-				elif (lclE1 < lclE2) and (lclE1 > 1e-4) and (lclE2 > 1e-4):
-					rt = lclE2/lclE1
-					bufferY1 = x1[pin : pin + wsz] * rt
-					bufferY2 = x2[pin : pin + wsz]
-
-				else:
-					bufferY1 = x1[pin : pin + wsz]
-					bufferY2 = x2[pin : pin + wsz]
-
-				y1[pin : pin + wsz] = AudioIO.twoSideClip(bufferY1, -1.0, 1.0)
-				y2[pin : pin + wsz] = AudioIO.twoSideClip(bufferY2, -1.0, 1.0)
-
-				pin += wsz
-
-		y1.shape = (len(y1),1)
-		y2.shape = (len(y2),1)
-		return y1, y2
-
-	@staticmethod
-	def twoSideClip(x, minimum, maximum):
-		""" Method to limit an input array inside a given
-			range.
-        Args:
-            x		:       (np array)      Input array to be limited
-            minimum	:       (int)      		Minimum value to be considered for cliping.
-            maximum :		(int)			Maximum value to be considered for cliping.
-
-        Returns:
-			x		:		(np array)	    Limited output array
-        """
-
-		for indx in range(len(x)):
-			if x[indx] < minimum:
-				x[indx] = minimum
-			elif x[indx] > maximum:
-				x[indx] = maximum
-
-		return x
-
 if __name__ == "__main__":
 	# Define File
 	myReadFile = 'EnterYourWavFile.wav'
+
 	# Read the file
 	x, fs = AudioIO.wavRead(myReadFile, mono = True)
+
 	# Gain parameter
-	g = 0.5
+	g = 0.2
+
 	# Listen to it
 	AudioIO.sound(x*g,fs)
+
 	# Make it better and write it to disk
 	x2 = np.empty((len(x),2), dtype = np.float32)
 	try :
@@ -503,7 +376,7 @@ if __name__ == "__main__":
 	except ValueError:
 		x2[:,0] = x[:,0] * g
 		x2[:,1] = np.roll(x[:,0] * g, 256)
+
 	# Listen to stereo processed
 	AudioIO.sound(x2*g,fs)
 	AudioIO.audioWrite(x2, fs, 16, 'myNewWavFile.wav', 'wav')
-
