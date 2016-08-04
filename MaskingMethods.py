@@ -71,16 +71,6 @@ class FrequencyMasking:
 			else :
 				FrequencyMasking.applyReverseMask(self)
 
-		elif (self._method == 'LWiener'):
-			FrequencyMasking.LeakageWiener(self)
-			if not(reverse) :
-				FrequencyMasking.applyMask(self)
-			else :
-				FrequencyMasking.applyReverseMask(self)
-
-		elif (self._method == 'CEWiener'):
-			FrequencyMasking.conistentEWiener(self)
-
 		return self._Out
 
 	def IRM(self):
@@ -156,90 +146,6 @@ class FrequencyMasking:
 
 		self._mask = np.divide(localsTarget, (self._eps + localsTarget + localnResidual))
 
-
-	def conistentEWiener(self):
-		"""
-			Wiener filtering with STFT consistency equality penalty. As appears in :
-			J. Le Roux and E. Vincent, "Consistent Wiener Filtering for Audio Source Separation,"
-			IEEE Signal Processing Letters, Vol. 20, No. 3, Mar. 2013.
-		Args:
-			mX	     : (2D ndarray) Complex Spectrogram of the observed mixture
-			sTarget  : (2D ndarray) Magnitude Spectrogram of the target component
-			nResidual: (2D ndarray) Magnitude Spectrogram of the residual component
-
-		Returns:
-			out  	 : (2D ndarray) Complex Spectrogram of the output
-		"""
-		# Please note that a specific windowing function has to be used, in order to converge!
-		print('Consistent Wiener filter with Equality Penalty')
-		X = self._mX ** self._alpha
-		VS = self._sTarget ** self._alpha
-		VN = self._nResidual ** self._alpha
-
-		nbin = VS.shape[0]
-		wlen = VS.shape[1]
-		hop = wlen/4
-		N = 2049
-		w = np.bartlett(wlen)
-
-		# Unconstrained Wiener filter with alpha harmonizable model
-		mu = np.multiply(np.divide(VS, (VS+VN + self._eps)), X)
-		Lamda = (1./(VS + self._eps)) + (1./(VN + self._eps))
-
-		# Conjugate gradient
-		se = TF.iSTFT(np.abs(mu), np.angle(mu), wlen, hop)
-		seMX, sePX = TF.STFT(se, w, N, hop)
-		SE = seMX * np.exp(1j*sePX)
-
-		LMU = np.multiply(Lamda, mu)
-		LSE = np.multiply(Lamda, SE)
-		b = TF.iSTFT(np.abs(LMU), np.angle(LMU), wlen, hop)
-		r = b - TF.iSTFT(np.abs(LSE), np.angle(LSE), wlen, hop)
-		invM = 1./Lamda
-		mXR, pXR = TF.STFT(r, w, N, hop)
-		R = mXR * np.exp(1j*pXR)
-		zd = np.multiply(invM, R)
-		z = TF.iSTFT(np.abs(zd), np.angle(zd), wlen, hop)
-		p = z
-		rsold = np.sum(np.sum(np.multiply(r, z)))
-		iter = 0
-		converged = False
-
-		del seMX, sePX, mXR, pXR, zd
-		while not(converged):
-			iter += 1
-			PmX, PpX = TF.STFT(p, w, N, hop)
-			P = PmX * np.exp(1j*PpX)
-
-			Apd = np.multiply(Lamda, P)
-			Ap = TF.iSTFT(np.abs(Apd), np.angle(Apd), wlen, hop)
-			alpha = rsold/(np.sum(np.sum(np.multiply(p, Ap))) + realmin)
-			se = se + alpha * p
-			if (alpha**2. * np.sum(np.sum(np.multiply(p, p)))) < 1e-6 * np.sum(np.sum(np.multiply(se , se))):
-				converged = True
-				print('Converged in ' + str(iter) + ' Iterations')
-
-			elif iter == 200:
-				converged = True
-				print('Maximum number of iterations reached')
-
-			r = r - (alpha*Ap)
-			mXR, pXR = TF.STFT(r, w, N, hop)
-			R = mXR * np.exp(1j*pXR)
-			zd = np.multiply(invM, R)
-			z = TF.iSTFT(np.abs(zd), np.angle(zd), wlen, hop)
-
-			rsnew = np.sum(np.sum(np.multiply(r, z)))
-			beta = rsnew/(rsold+realmin)
-			p = z+beta*p
-			rsold = rsnew
-
-			del PmX, PpX, mXR, pXR, Apd, zd
-
-		seMX, sePX = TF.STFT(se, w, N, hop)
-
-		self._Out = (seMX * np.exp(1j*sePX))
-
 	def alphaHarmonizableProcess(self):
 		"""
 			Computation of alpha harmonizable Wiener like mask, as appears in :
@@ -255,8 +161,14 @@ class FrequencyMasking:
 		"""
 		print('Harmonizable Process with alpha:', str(self._alpha))
 		localsTarget = self._sTarget ** self._alpha
-		localnResidual = self._nResidual ** self._alpha
-
+		numElements = len(self._nResidual)
+		if numElements > 1:
+			localnResidual = self._nResidual[0] ** self._alpha
+			for indx in range(1, numElements):
+				localnResidual += self._nResidual[indx] ** self._alpha
+		else :
+			localnResidual = self._nResidual ** self._alpha
+			 
 		self._mask = np.divide((localsTarget + self._eps), (self._eps + localnResidual))
 
 	def phaseSensitive(self):
