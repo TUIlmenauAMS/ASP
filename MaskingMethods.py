@@ -154,7 +154,8 @@ class FrequencyMasking:
     		Apr 2015, Brisbane, Australia. IEEE, 2015
 		Args:
 			sTarget:   (2D ndarray) Magnitude Spectrogram of the target component
-			nResidual: (2D ndarray) Magnitude Spectrogram of the residual component
+		    nResidual: (2D ndarray) Magnitude Spectrogram of the residual component or a list 
+									of 2D ndarray s which will be summed.
 		Returns:
 			mask:      (2D ndarray) Array that contains time frequency gain values
 
