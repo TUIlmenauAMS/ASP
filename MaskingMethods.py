@@ -75,7 +75,7 @@ class FrequencyMasking:
 
 	def IRM(self):
 		"""
-			Computation of Ideal Ratio Mask. As appears in :
+			Computation of Ideal Amplitude Ratio Mask. As appears in :
 			H Erdogan, John R. Hershey, Shinji Watanabe, and Jonathan Le Roux,
 	   		"Phase-sensitive and recognition-boosted speech separation using deep recurrent neural networks,"
 	   		in ICASSP 2015, Brisbane, April, 2015.
@@ -86,7 +86,7 @@ class FrequencyMasking:
 			mask:      (2D ndarray) Array that contains time frequency gain values
 
 		"""
-
+		print('Ideal Amplitude Ratio Mask')
 		self._mask = np.divide(self._sTarget, (self._eps + self._sTarget + self._nResidual))
 
 	def IBM(self):
@@ -99,6 +99,7 @@ class FrequencyMasking:
 			mask:      (2D ndarray) Array that contains time frequency gain values
 
 		"""
+		print('Ideal Binary Mask')
 		theta = 0.5
 		mask = np.divide(self._sTarget ** self._alpha, (self._eps + self._nResidual ** self._alpha))
 		bg = np.where(mask >= theta)
@@ -119,7 +120,7 @@ class FrequencyMasking:
 		Returns:
 			mask:      (2D ndarray) Array that contains time frequency gain values
 		"""
-
+		print('Upper Bound Binary Mask')
 		mask = 20. * np.log(self._eps + np.divide((self._eps + (self._sTarget ** self._alpha)),
 									  ((self._eps + (self._nResidual ** self._alpha)))))
 		bg = np.where(mask >= 0)
@@ -141,21 +142,27 @@ class FrequencyMasking:
 				mask:      (2D ndarray) Array that contains time frequency gain values
 		"""
 		print('Wiener-like Mask')
-		localsTarget = np.multiply(self._sTarget, self._sTarget)
-		localnResidual = np.multiply(self._nResidual, self._nResidual)
+		localsTarget = self._sTarget ** 2.
+		numElements = len(self._nResidual)
+		if numElements > 1:
+			localnResidual = self._nResidual[0] ** 2. + localsTarget
+			for indx in range(1, numElements):
+				localnResidual += self._nResidual[indx] ** 2.
+		else :
+			localnResidual = self._nResidual[0] ** 2. + localsTarget
 
-		self._mask = np.divide(localsTarget, (self._eps + localsTarget + localnResidual))
+		self._mask = np.divide((localsTarget + self._eps), (self._eps + localnResidual))
 
 	def alphaHarmonizableProcess(self):
 		"""
 			Computation of alpha harmonizable Wiener like mask, as appears in :
 			A. Liutkus, R. Badeau, "Generalized Wiener filtering with fractional power spectrograms",
     		40th International Conference on Acoustics, Speech and Signal Processing (ICASSP),
-    		Apr 2015, Brisbane, Australia. IEEE, 2015
+    		Apr 2015, Brisbane, Australia.
 		Args:
 			sTarget:   (2D ndarray) Magnitude Spectrogram of the target component
 		    nResidual: (2D ndarray) Magnitude Spectrogram of the residual component or a list 
-									of 2D ndarray s which will be summed.
+									of 2D ndarrays which will be summed
 		Returns:
 			mask:      (2D ndarray) Array that contains time frequency gain values
 
@@ -164,11 +171,11 @@ class FrequencyMasking:
 		localsTarget = self._sTarget ** self._alpha
 		numElements = len(self._nResidual)
 		if numElements > 1:
-			localnResidual = self._nResidual[0] ** self._alpha
+			localnResidual = self._nResidual[0] ** self._alpha + localsTarget
 			for indx in range(1, numElements):
 				localnResidual += self._nResidual[indx] ** self._alpha
 		else :
-			localnResidual = self._nResidual ** self._alpha
+			localnResidual = self._nResidual[0] ** self._alpha + localsTarget
 			 
 		self._mask = np.divide((localsTarget + self._eps), (self._eps + localnResidual))
 
@@ -191,7 +198,6 @@ class FrequencyMasking:
 		print('Phase Sensitive Masking.')
 		# Compute Phase Difference
 		Theta = (self._pTarget - self._pY)
-
 		self._mask = 2./ (1. + np.exp(-np.multiply(np.divide(self._sTarget, self._eps + self._nResidual), np.cos(Theta)))) - 1.
 
 	def applyMask(self):
@@ -228,26 +234,9 @@ if __name__ == "__main__":
 	noisX = fft(noise, 4096)
 	obsX  = fft(obs, 4096)
 
-	sigrms = np.sqrt((sum((obs-noise)**2))/len(kSin))
-	nsrms = np.sqrt((sum((obs-kSin)**2))/len(noise))
-	dummySNR = 20*np.log10((sigrms) / (nsrms))
-
-	# Wiener Case (same with IRM case)
-	mask = FrequencyMasking(np.abs(obsX), np.abs(kSinX), np.abs(noisX), [], [], 'Wiener')
-	out1 = mask()
-	sigR = np.real(ifft(out1))
-	nosR = np.real(ifft(np.abs(np.abs(obsX) - out1)))
-
-	sigrms = np.sqrt(sum(sigR**2)/len(sigR))
-	nsrms = np.sqrt(sum(nosR**2)/len(nosR))
-	M1dummySNR = 20*np.log10((sigrms) / (nsrms))
-
-	# Phase Case
-	mask = FrequencyMasking(np.abs(obsX), np.abs(kSinX), np.abs(noisX), np.angle(kSinX), np.angle(noisX), 'Phase')
-	out2 = mask()
-	sigR2 = np.real(ifft(out2))
-	nosR2 = np.real(ifft(np.abs(np.abs(obsX) - out2)))
-
-	sigrms2 = np.sqrt(sum(sigR2**2)/len(sigR2))
-	nsrms2 = np.sqrt(sum(nosR2**2)/len(nosR2))
-	M2dummySNR = 20*np.log10((sigrms2) / (nsrms2))
+	# Wiener Case
+	mask = FrequencyMasking(np.abs(obsX), np.abs(kSinX), [np.abs(noisX)], [], [], alpha = 2., method = 'alphaWiener')
+	sinhat = mask()
+	noisehat = mask(reverse = True)
+	# Access the mask if needed
+	ndmask = mask._mask
