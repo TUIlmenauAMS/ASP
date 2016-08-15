@@ -6,7 +6,7 @@ Currently supported functionallity :
 - WAV/MP3/AAC Reading and Writing
 - Time Frequency Methods : MDCT/MDST/PQMF/STFT
 - Cepstral Analysis : Uniform Discrete Cepstrum
-- Misc Operations : Analytic Function via Hilbert Transformation, Bark Scaling, W-Disjoint Orthogonality Measure
+- Misc Operations : Bark Scaling, W-Disjoint Orthogonality Measure
 
 For code usage, please refer to each class. Examples are given inside method or in the "main()" call.
 
