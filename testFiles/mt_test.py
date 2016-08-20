@@ -117,7 +117,7 @@ while run == True:
         if indx % 10 == 0:
             # Maximum quantization rate computation
             bc = (np.log2( (b_mX[0, :] + 1e-16)/(mt[0, :] + 1e-16)))
-            bc = np.int(np.mean(bc[bc >= 0 ]))
+            bc = (np.mean(bc[bc >= 0 ]))
 
             if option == 'matplotlib' :
                 # Matplotlib
