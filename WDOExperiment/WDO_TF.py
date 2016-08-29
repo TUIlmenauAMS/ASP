@@ -17,9 +17,10 @@ from matplotlib import rcParams
 eps = np.finfo(np.float32).tiny
 
 # STFT
+# Periodic Widnows
 def eval_stft_hann(alpha, mixKaraoke, vox):
-    MixmX, _ = TF.TimeFrequencyDecomposition.STFT(mixKaraoke, w = sig.hanning(1024, False), N = 1024, hop = 512)
-    VoxmX, _ = TF.TimeFrequencyDecomposition.STFT(vox, w = sig.hanning(1024, False), N = 1024, hop = 512)
+    MixmX, _ = TF.TimeFrequencyDecomposition.STFT(mixKaraoke, w = sig.hanning(2048, False), N = 2048, hop = 410)
+    VoxmX, _ = TF.TimeFrequencyDecomposition.STFT(vox, w = sig.hanning(2048, False), N = 2048, hop = 410)
 
     # Compute Upper Bound Binary Mask
     mask = fm(np.abs(MixmX + VoxmX), np.abs(VoxmX), np.abs(MixmX), [], [], alpha = alpha, method = 'UBBM')
@@ -37,8 +38,8 @@ def eval_stft_hann(alpha, mixKaraoke, vox):
     return WDO
 
 def eval_stft_bt(alpha, mixKaraoke, vox):
-    MixmX, _ = TF.TimeFrequencyDecomposition.STFT(mixKaraoke, w = sig.bartlett(1024, False), N = 1024, hop = 512)
-    VoxmX, _ = TF.TimeFrequencyDecomposition.STFT(vox, w = sig.bartlett(1024, False), N = 1024, hop = 512)
+    MixmX, _ = TF.TimeFrequencyDecomposition.STFT(mixKaraoke, w = sig.bartlett(2048, False), N = 2048, hop = 410)
+    VoxmX, _ = TF.TimeFrequencyDecomposition.STFT(vox, w = sig.bartlett(2048, False), N = 2048, hop = 410)
 
     # Compute Upper Bound Binary Mask
     mask = fm(np.abs(MixmX + VoxmX), np.abs(VoxmX), np.abs(MixmX), [], [], alpha = alpha, method = 'UBBM')
@@ -56,8 +57,8 @@ def eval_stft_bt(alpha, mixKaraoke, vox):
     return WDO
 
 def eval_stft_nt(alpha, mixKaraoke, vox):
-    MixmX, _ = TF.TimeFrequencyDecomposition.STFT(mixKaraoke, w = TF.TimeFrequencyDecomposition.nuttall4b(1024, False), N = 1024, hop = 256)
-    VoxmX, _ = TF.TimeFrequencyDecomposition.STFT(vox, w = TF.TimeFrequencyDecomposition.nuttall4b(1024, False), N = 1024, hop = 256)
+    MixmX, _ = TF.TimeFrequencyDecomposition.STFT(mixKaraoke, w = TF.TimeFrequencyDecomposition.nuttall4b(2048, False), N = 2048, hop = 410)
+    VoxmX, _ = TF.TimeFrequencyDecomposition.STFT(vox, w = TF.TimeFrequencyDecomposition.nuttall4b(2048, False), N = 2048, hop = 410)
 
     # Compute Upper Bound Binary Mask
     mask = fm(np.abs(MixmX + VoxmX), np.abs(VoxmX), np.abs(MixmX), [], [], alpha = alpha, method = 'UBBM')
@@ -74,9 +75,9 @@ def eval_stft_nt(alpha, mixKaraoke, vox):
 
     return WDO
 
-def eval_stft_ntB(alpha, mixKaraoke, vox):
-    MixmX, _ = TF.TimeFrequencyDecomposition.STFT(mixKaraoke, w = TF.TimeFrequencyDecomposition.nuttall4b(1024, False), N = 1024, hop = 512)
-    VoxmX, _ = TF.TimeFrequencyDecomposition.STFT(vox, w = TF.TimeFrequencyDecomposition.nuttall4b(1024, False), N = 1024, hop = 512)
+def eval_stft_hamming(alpha, mixKaraoke, vox):
+    MixmX, _ = TF.TimeFrequencyDecomposition.STFT(mixKaraoke, w = sig.hamming(2048, False), N = 2048, hop = 410)
+    VoxmX, _ = TF.TimeFrequencyDecomposition.STFT(vox, w =  sig.hamming(2048, False), N = 2048, hop = 410)
 
     # Compute Upper Bound Binary Mask
     mask = fm(np.abs(MixmX + VoxmX), np.abs(VoxmX), np.abs(MixmX), [], [], alpha = alpha, method = 'UBBM')
@@ -93,8 +94,86 @@ def eval_stft_ntB(alpha, mixKaraoke, vox):
 
     return WDO
 
+# Symmetric Windows
+def eval_stft_hann_symm(alpha, mixKaraoke, vox):
+    MixmX, _ = TF.TimeFrequencyDecomposition.STFT(mixKaraoke, w = sig.hanning(2047, True), N = 2048, hop = 410)
+    VoxmX, _ = TF.TimeFrequencyDecomposition.STFT(vox, w = sig.hanning(2047, True), N = 2048, hop = 410)
+
+    # Compute Upper Bound Binary Mask
+    mask = fm(np.abs(MixmX + VoxmX), np.abs(VoxmX), np.abs(MixmX), [], [], alpha = alpha, method = 'UBBM')
+
+    # Activate the method to acquire the mask
+    vsf = mask()
+    M = mask._mask
+
+    # Compute the measures used in WDO
+    PSR = TF.WDODisjointness.PSR(M, np.abs(VoxmX))
+    SIR = TF.WDODisjointness.SIR(M, np.abs(VoxmX), np.abs(MixmX))
+
+    WDO = TF.WDODisjointness.WDO(PSR, SIR)
+
+    return WDO
+
+def eval_stft_bt_symm(alpha, mixKaraoke, vox):
+    MixmX, _ = TF.TimeFrequencyDecomposition.STFT(mixKaraoke, w = sig.bartlett(2047, True), N = 2048, hop = 410)
+    VoxmX, _ = TF.TimeFrequencyDecomposition.STFT(vox, w = sig.bartlett(2047, True), N = 2048, hop = 410)
+
+    # Compute Upper Bound Binary Mask
+    mask = fm(np.abs(MixmX + VoxmX), np.abs(VoxmX), np.abs(MixmX), [], [], alpha = alpha, method = 'UBBM')
+
+    # Activate the method to acquire the mask
+    vsf = mask()
+    M = mask._mask
+
+    # Compute the measures used in WDO
+    PSR = TF.WDODisjointness.PSR(M, np.abs(VoxmX))
+    SIR = TF.WDODisjointness.SIR(M, np.abs(VoxmX), np.abs(MixmX))
+
+    WDO = TF.WDODisjointness.WDO(PSR, SIR)
+
+    return WDO
+
+def eval_stft_nt_symm(alpha, mixKaraoke, vox):
+    MixmX, _ = TF.TimeFrequencyDecomposition.STFT(mixKaraoke, w = TF.TimeFrequencyDecomposition.nuttall4b(2047, True), N = 2048, hop = 410)
+    VoxmX, _ = TF.TimeFrequencyDecomposition.STFT(vox, w = TF.TimeFrequencyDecomposition.nuttall4b(2047, True), N = 2048, hop = 410)
+
+    # Compute Upper Bound Binary Mask
+    mask = fm(np.abs(MixmX + VoxmX), np.abs(VoxmX), np.abs(MixmX), [], [], alpha = alpha, method = 'UBBM')
+
+    # Activate the method to acquire the mask
+    vsf = mask()
+    M = mask._mask
+
+    # Compute the measures used in WDO
+    PSR = TF.WDODisjointness.PSR(M, np.abs(VoxmX))
+    SIR = TF.WDODisjointness.SIR(M, np.abs(VoxmX), np.abs(MixmX))
+
+    WDO = TF.WDODisjointness.WDO(PSR, SIR)
+
+    return WDO
+
+def eval_stft_hamming_symm(alpha, mixKaraoke, vox):
+    MixmX, _ = TF.TimeFrequencyDecomposition.STFT(mixKaraoke, w = sig.hamming(2047, True), N = 2048, hop = 410)
+    VoxmX, _ = TF.TimeFrequencyDecomposition.STFT(vox, w =  sig.hamming(2047, True), N = 2048, hop = 410)
+
+    # Compute Upper Bound Binary Mask
+    mask = fm(np.abs(MixmX + VoxmX), np.abs(VoxmX), np.abs(MixmX), [], [], alpha = alpha, method = 'UBBM')
+
+    # Activate the method to acquire the mask
+    vsf = mask()
+    M = mask._mask
+
+    # Compute the measures used in WDO
+    PSR = TF.WDODisjointness.PSR(M, np.abs(VoxmX))
+    SIR = TF.WDODisjointness.SIR(M, np.abs(VoxmX), np.abs(MixmX))
+
+    WDO = TF.WDODisjointness.WDO(PSR, SIR)
+
+    return WDO
+
+# Sparsity Measures
 def spc_eval_stft_hann(alpha, mixKaraoke, vox):
-    MixmX, _ = TF.TimeFrequencyDecomposition.STFT(mixKaraoke + vox, w = sig.hanning(1024, False), N = 1024, hop = 512)
+    MixmX, _ = TF.TimeFrequencyDecomposition.STFT(mixKaraoke + vox, w = sig.hanning(2048, False), N = 2048, hop = 410)
 
     # Compute Sparsity Criteria
     SPCMix = np.mean(TF.WDODisjointness.gini_index(MixmX))
@@ -102,7 +181,7 @@ def spc_eval_stft_hann(alpha, mixKaraoke, vox):
     return SPCMix
 
 def spc_eval_stft_bt(alpha, mixKaraoke, vox):
-    MixmX, _ = TF.TimeFrequencyDecomposition.STFT(mixKaraoke + vox, w = sig.bartlett(1024, False), N = 1024, hop = 512)
+    MixmX, _ = TF.TimeFrequencyDecomposition.STFT(mixKaraoke + vox, w = sig.bartlett(2048, False), N = 2048, hop = 410)
 
     # Compute Sparsity Criteria
     SPCMix = np.mean(TF.WDODisjointness.gini_index(MixmX))
@@ -110,15 +189,48 @@ def spc_eval_stft_bt(alpha, mixKaraoke, vox):
     return SPCMix
 
 def spc_eval_stft_nt(alpha, mixKaraoke, vox):
-    MixmX, _ = TF.TimeFrequencyDecomposition.STFT(mixKaraoke + vox, w = TF.TimeFrequencyDecomposition.nuttall4b(1024, False), N = 1024, hop = 256)
+    MixmX, _ = TF.TimeFrequencyDecomposition.STFT(mixKaraoke + vox, w = TF.TimeFrequencyDecomposition.nuttall4b(2048, False), N = 2048, hop = 410)
 
     # Compute Sparsity Criteria
     SPCMix = np.mean(TF.WDODisjointness.gini_index(MixmX))
 
     return SPCMix
 
-def spc_eval_stft_ntB(alpha, mixKaraoke, vox):
-    MixmX, _ = TF.TimeFrequencyDecomposition.STFT(mixKaraoke + vox, w = TF.TimeFrequencyDecomposition.nuttall4b(1024, False), N = 1024, hop = 512)
+def spc_eval_stft_hamming(alpha, mixKaraoke, vox):
+    MixmX, _ = TF.TimeFrequencyDecomposition.STFT(mixKaraoke + vox, w = sig.hamming(2048, False), N = 2048, hop = 410)
+
+    # Compute Sparsity Criteria
+    SPCMix = np.mean(TF.WDODisjointness.gini_index(MixmX))
+
+    return SPCMix
+
+# Symmetric Windows
+def spc_eval_stft_hann_symm(alpha, mixKaraoke, vox):
+    MixmX, _ = TF.TimeFrequencyDecomposition.STFT(mixKaraoke + vox, w = sig.hanning(2047, True), N = 2048, hop = 410)
+
+    # Compute Sparsity Criteria
+    SPCMix = np.mean(TF.WDODisjointness.gini_index(MixmX))
+
+    return SPCMix
+
+def spc_eval_stft_bt_symm(alpha, mixKaraoke, vox):
+    MixmX, _ = TF.TimeFrequencyDecomposition.STFT(mixKaraoke + vox, w = sig.bartlett(2047, True), N = 2048, hop = 410)
+
+    # Compute Sparsity Criteria
+    SPCMix = np.mean(TF.WDODisjointness.gini_index(MixmX))
+
+    return SPCMix
+
+def spc_eval_stft_nt_symm(alpha, mixKaraoke, vox):
+    MixmX, _ = TF.TimeFrequencyDecomposition.STFT(mixKaraoke + vox, w = TF.TimeFrequencyDecomposition.nuttall4b(2047, True), N = 2048, hop = 410)
+
+    # Compute Sparsity Criteria
+    SPCMix = np.mean(TF.WDODisjointness.gini_index(MixmX))
+
+    return SPCMix
+
+def spc_eval_stft_hamming_symm(alpha, mixKaraoke, vox):
+    MixmX, _ = TF.TimeFrequencyDecomposition.STFT(mixKaraoke + vox, w = sig.hamming(2047, True), N = 2048, hop = 410)
 
     # Compute Sparsity Criteria
     SPCMix = np.mean(TF.WDODisjointness.gini_index(MixmX))
@@ -270,7 +382,7 @@ def spc_eval_pqmf_cos(alpha, mixKaraoke, vox):
 
 
     # Compute Sparsity Criteria
-    SPCMix = np.mean(TF.WDODisjointness.gini_index(np.abs(ms)))
+    SPCMix = np.mean(TF.WDODisjointness.gini_index(np.abs(karms)))
 
     return SPCMix
 
@@ -287,7 +399,7 @@ def spc_eval_pqmf_complex(alpha, mixKaraoke, vox):
             karms[indx, :] = qrf.PQMFAnalysis.complex_analysis_realtime(mix[indx * N : (indx + 1) * N], N)
 
     # Compute Sparsity Criteria
-    SPCMix = np.mean(TF.WDODisjointness.gini_index(np.abs(ms)))
+    SPCMix = np.mean(TF.WDODisjointness.gini_index(np.abs(karms)))
 
     return SPCMix
 
@@ -353,79 +465,6 @@ def OLAPSynth(xmX, wsz, hop):
     y = np.delete(y, range(np.int(y.size-(3*hop + 1)), y.size))
 
     return y
-
-def eval_dctdst_mp(mixKaraoke, vox):
-    nSamples = 2048
-    N = 512
-    winsamples = N * 2
-
-    # Compute union of various DCT lengths for Dictionary
-    win = np.bartlett(winsamples)
-    cCos, cSin = TF.TimeFrequencyDecomposition.coreModulation(win, N)
-    cCos = cCos.T
-    cSin = cSin.T
-    cbCos = np.zeros((nSamples, cCos.shape[1]))
-    cbCos[:cCos.shape[0], :] = cCos
-    cbSin = np.zeros((nSamples, cSin.shape[1]))
-    cbSin[:cSin.shape[0], :] = cSin
-    U = np.hstack((cbCos, cbSin))
-
-    # Create Dictionary
-    CS2 = np.asfortranarray(U, (np.float32))
-
-    # Ovelapped analysis
-    win = np.bartlett(nSamples)
-    karmix = np.asfortranarray(OLAnalysis(mixKaraoke, win, nSamples, nSamples/4).T, np.float32)
-    vox = np.asfortranarray(OLAnalysis(vox, win, nSamples, nSamples/4).T, np.float32)
-
-    # Acquire coefficients using orthogonal matching pursuit
-    ms = np.asarray(spams.omp(karmix, CS2, 210, 1e-16).todense()).T
-    vs = np.asarray(spams.omp(vox, CS2, 210, 1e-16).todense()).T
-
-    # Compute Upper Bound Binary Mask
-    mask = fm(np.abs(ms + vs), np.abs(vs), np.abs(ms), [], [], alpha = 1., method = 'UBBM')
-
-    # Activate the method to acquire the mask
-    vsf = mask()
-    M = mask._mask
-
-    # Compute the measures used in WDO
-    PSR = TF.WDODisjointness.PSR(M, np.abs(vs))
-    SIR = TF.WDODisjointness.SIR(M, np.abs(vs), np.abs(ms))
-    WDO = TF.WDODisjointness.WDO(PSR, SIR)
-
-    return WDO
-
-def spc_eval_dctdst_mp(mixKaraoke, vox):
-    nSamples = 2048
-    N = 512
-    winsamples = N * 2
-
-    # Compute union of various DCT lengths for Dictionary
-    win = np.bartlett(winsamples)
-    cCos, cSin = TF.TimeFrequencyDecomposition.coreModulation(win, N)
-    cCos = cCos.T
-    cSin = cSin.T
-    cbCos = np.zeros((nSamples, cCos.shape[1]))
-    cbCos[:cCos.shape[0], :] = cCos
-    cbSin = np.zeros((nSamples, cSin.shape[1]))
-    cbSin[:cSin.shape[0], :] = cSin
-    U = np.hstack((cbCos, cbSin))
-
-    # Create Dictionary
-    CS2 = np.asfortranarray(U, (np.float32))
-
-    # Ovelapped analysis
-    win = np.bartlett(nSamples)
-    karmix = np.asfortranarray(OLAnalysis(mixKaraoke + vox, win, nSamples, nSamples/4).T, np.float32)
-
-    # Acquire coefficients using orthogonal matching pursuit
-    ms = np.asarray(spams.omp(karmix, CS2, 210, 1e-16).todense()).T
-
-    # Compute Sparsity Criteria
-    SPCMix = np.mean(TF.WDODisjointness.gini_index(np.abs(ms)))
-
-    return SPCMix
 
 def eval_dct_union_mp_ovdt(mixKaraoke, vox):
     # Union overdetermined
@@ -517,14 +556,20 @@ def spc_eval_dct_union_mp_ovdt(mixKaraoke, vox):
 def load_results():
     # STFT
     # Hanning
-    stft_hann_a1 = np.load('WDOExperiment/stft_hann_a1.npy')
+    stft_hann = np.load('WDOExperiment/stft_hann.npy')
+    stft_hann_symm = np.load('WDOExperiment/stft_hann_symm.npy')
 
     # Bartlett
-    stft_bt_a1 = np.load('WDOExperiment/stft_bt_a1.npy')
+    stft_bt = np.load('WDOExperiment/stft_bt.npy')
+    stft_bt_symm = np.load('WDOExperiment/stft_bt_symm.npy')
 
     # Nuttall-4b
-    stft_nt_a1 = np.load('WDOExperiment/stft_nt_a1.npy')
-    stft_ntB_a1 = np.load('WDOExperiment/stft_ntB_a1.npy')
+    stft_nt = np.load('WDOExperiment/stft_nt.npy')
+    stft_nt_symm = np.load('WDOExperiment/stft_nt_symm.npy')
+
+    # Hamming
+    stft_hamm = np.load('WDOExperiment/stft_hamming.npy')
+    stft_hamm_symm = np.load('WDOExperiment/stft_hamming_symm.npy')
 
     # MDCT
     mdct_a1 = np.load('WDOExperiment/mdct_a1.npy')
@@ -538,20 +583,27 @@ def load_results():
     mdct_union_mp_ovdt = np.load('WDOExperiment/mdct_union_mp_ovdt.npy')
     mdctdst_union_mp_ovdt = np.load('WDOExperiment/mdctdst_union_mp_ovdt.npy')
 
-    return stft_hann_a1,stft_bt_a1, stft_nt_a1, stft_ntB_a1, mdct_a1, mdcst_a1, pqmf_cos_a1,\
-           pqmf_compl_a1, mdct_union_mp_ovdt, mdctdst_union_mp_ovdt
+    return stft_hann, stft_bt, stft_nt, stft_hamm, mdct_a1, mdcst_a1, pqmf_cos_a1,\
+           pqmf_compl_a1, mdct_union_mp_ovdt, mdctdst_union_mp_ovdt, stft_hann_symm, stft_bt_symm,\
+           stft_nt_symm, stft_hamm_symm
 
 def load_SPCresults():
     # STFT
     # Hanning
-    spc_stft_hann = np.load('WDOExperiment/spc_stft_hann_a1.npy')
+    spc_stft_hann = np.load('WDOExperiment/spc_stft_hann.npy')
+    spc_stft_hann_symm = np.load('WDOExperiment/spc_stft_hann_symm.npy')
 
     # Bartlett
-    spc_stft_bt = np.load('WDOExperiment/spc_stft_bt_a1.npy')
+    spc_stft_bt = np.load('WDOExperiment/spc_stft_bt.npy')
+    spc_stft_bt_symm = np.load('WDOExperiment/spc_stft_bt_symm.npy')
 
     # Nuttall-4b
-    spc_stft_nt = np.load('WDOExperiment/spc_stft_nt_a1.npy')
-    spc_stft_ntB = np.load('WDOExperiment/spc_stft_ntB_a1.npy')
+    spc_stft_nt = np.load('WDOExperiment/spc_stft_nt.npy')
+    spc_stft_nt_symm = np.load('WDOExperiment/spc_stft_nt_symm.npy')
+
+    # Hamming
+    spc_stft_hamm = np.load('WDOExperiment/spc_stft_hamming.npy')
+    spc_stft_hamm_symm = np.load('WDOExperiment/spc_stft_hamming_symm.npy')
 
     # MDCT
     spc_mdct = np.load('WDOExperiment/spc_mdct_a1.npy')
@@ -565,12 +617,14 @@ def load_SPCresults():
     #mdct_union_mp_ovdt = np.load('WDOExperiment/spc_mdct_union_mp_ovdt.npy')
     #mdctdst_union_mp_ovdt = np.load('WDOExperiment/spc_mdctdst_union_mp_ovdt.npy')
 
-    return spc_stft_hann, spc_stft_bt, spc_stft_nt, spc_stft_ntB, spc_mdct,\
-           spc_mdcst, spc_pqmf, spc_pqmf_comp#, mdct_union_mp_ovdt, mdctdst_union_mp_ovdt
+    return spc_stft_hann, spc_stft_bt, spc_stft_nt, spc_stft_hamm, spc_mdct,\
+           spc_mdcst, spc_pqmf, spc_pqmf_comp, spc_stft_hann_symm, spc_stft_bt_symm,\
+           spc_stft_nt_symm, spc_stft_hamm_symm
 
 # Main Operations
 ### WDO
 def mainWDO(selection):
+
     # Paths & Names
     MixturesPath = '/home/avdata/audio/own/dsd100/DSD100/Mixtures/'
     SourcesPath = '/home/avdata/audio/own/dsd100/DSD100/Sources/'
@@ -598,15 +652,15 @@ def mainWDO(selection):
     # Saving Index for storing the results
     saveIndx = 0
 
-    # Number of sub-bands
-    N = 1024
-
     # Initialize Results storing
-    # Alpha = 1.
-    stft_hann_a1 = np.zeros(100)
-    stft_bt_a1 = np.zeros(100)
-    stft_nt_a1 = np.zeros(100)
-    stft_ntB_a1 = np.zeros(100)
+    stft_hann = np.zeros(100)
+    stft_hann_symm = np.zeros(100)
+    stft_bt = np.zeros(100)
+    stft_bt_symm = np.zeros(100)
+    stft_nt = np.zeros(100)
+    stft_nt_symm = np.zeros(100)
+    stft_hamming = np.zeros(100)
+    stft_hamming_symm = np.zeros(100)
 
     mdct_a1 = np.zeros(100)
     mdcst_a1 = np.zeros(100)
@@ -626,21 +680,30 @@ def mainWDO(selection):
         mixKaraoke = bss + drm + oth
         del bss, drm, oth
         vox, fs = IO.AudioIO.wavRead(os.path.join(DevSourcesList[folderIndx], keywords[3]), mono = True)
-        mix, fs = IO.AudioIO.wavRead(os.path.join(DevMixturesList[folderIndx], keywords[4]), mono = True)
+        #mix, fs = IO.AudioIO.wavRead(os.path.join(DevMixturesList[folderIndx], keywords[4]), mono = True)
 
         # Evaluation inside file loop
         if selection == 'stft':
             print('STFT')
-            # Alpha = 1.
-            stft_hann_a1[saveIndx] = eval_stft_hann(1., mixKaraoke, vox)
-            stft_bt_a1[saveIndx] = eval_stft_bt(1., mixKaraoke, vox)
-            stft_nt_a1[saveIndx] = eval_stft_nt(1., mixKaraoke, vox)
-            stft_ntB_a1[saveIndx] = eval_stft_ntB(1., mixKaraoke, vox)
+            stft_hann[saveIndx] = eval_stft_hann(1., mixKaraoke, vox)
+            stft_bt[saveIndx] = eval_stft_bt(1., mixKaraoke, vox)
+            stft_nt[saveIndx] = eval_stft_nt(1., mixKaraoke, vox)
+            stft_hamming[saveIndx] = eval_stft_hamming(1., mixKaraoke, vox)
 
-            np.save('WDOExperiment/stft_hann_a1.npy', stft_hann_a1)
-            np.save('WDOExperiment/stft_bt_a1.npy', stft_bt_a1)
-            np.save('WDOExperiment/stft_nt_a1.npy', stft_nt_a1)
-            np.save('WDOExperiment/stft_ntB_a1.npy', stft_ntB_a1)
+            np.save('WDOExperiment/stft_hann.npy', stft_hann)
+            np.save('WDOExperiment/stft_bt.npy', stft_bt)
+            np.save('WDOExperiment/stft_nt.npy', stft_nt)
+            np.save('WDOExperiment/stft_hamming.npy', stft_hamming)
+
+            stft_hann_symm[saveIndx] = eval_stft_hann_symm(1., mixKaraoke, vox)
+            stft_bt_symm[saveIndx] = eval_stft_bt_symm(1., mixKaraoke, vox)
+            stft_nt_symm[saveIndx] = eval_stft_nt_symm(1., mixKaraoke, vox)
+            stft_hamming_symm[saveIndx] = eval_stft_hamming_symm(1., mixKaraoke, vox)
+
+            np.save('WDOExperiment/stft_hann_symm.npy', stft_hann_symm)
+            np.save('WDOExperiment/stft_bt_symm.npy', stft_bt_symm)
+            np.save('WDOExperiment/stft_nt_symm.npy', stft_nt_symm)
+            np.save('WDOExperiment/stft_hamming_symm.npy', stft_hamming_symm)
 
         elif selection == 'mdct':
             print('MDCT')
@@ -665,7 +728,6 @@ def mainWDO(selection):
 
         elif selection == 'mp':
             print('Matching Pursuit Based')
-            #dctdst_union_mp_ovdt[saveIndx] = eval_dctdst_mp(mixKaraoke, vox)
             dct_union_mp_ovdt[saveIndx] = eval_dct_union_mp_ovdt(mixKaraoke, vox)
 
             np.save('WDOExperiment/mdctdst_union_mp_ovdt.npy', dctdst_union_mp_ovdt)
@@ -708,21 +770,21 @@ def mainSPC(selection):
     # Saving Index for storing the results
     saveIndx = 0
 
-    # Number of sub-bands
-    N = 1024
-
     # Initialize Results storing
-    # Alpha = 1.
-    stft_hann_a1 = np.zeros((100))
-    stft_bt_a1 = np.zeros((100))
-    stft_nt_a1 = np.zeros((100))
-    stft_ntB_a1 = np.zeros((100))
+    stft_hann = np.zeros((100))
+    stft_bt = np.zeros((100))
+    stft_nt = np.zeros((100))
+    stft_hamming = np.zeros((100))
+
+    stft_hann_symm = np.zeros((100))
+    stft_bt_symm = np.zeros((100))
+    stft_nt_symm = np.zeros((100))
+    stft_hamming_symm = np.zeros((100))
 
     mdct_a1 = np.zeros((100))
     mdcst_a1 = np.zeros((100))
     pqmf_cos_a1 = np.zeros((100))
     pqmf_compl_a1 = np.zeros((100))
-
 
     mdct_union_mp_ovdt = np.zeros((100))
     dctdst_union_mp_ovdt = np.zeros((100))
@@ -736,23 +798,30 @@ def mainSPC(selection):
         mixKaraoke = bss + drm + oth
         del bss, drm, oth
         vox, fs = IO.AudioIO.wavRead(os.path.join(DevSourcesList[folderIndx], keywords[3]), mono = True)
-        mix, fs = IO.AudioIO.wavRead(os.path.join(DevMixturesList[folderIndx], keywords[4]), mono = True)
+        #mix, fs = IO.AudioIO.wavRead(os.path.join(DevMixturesList[folderIndx], keywords[4]), mono = True)
 
         # Evaluation inside file loop
         if selection == 'stft':
             print('STFT')
-            # Alpha = 1.
-            stft_hann_a1[saveIndx]= spc_eval_stft_hann(1., mixKaraoke, vox)
-            stft_bt_a1[saveIndx] = spc_eval_stft_bt(1., mixKaraoke, vox)
-            stft_nt_a1[saveIndx] = spc_eval_stft_nt(1., mixKaraoke, vox)
-            stft_ntB_a1[saveIndx] = spc_eval_stft_ntB(1., mixKaraoke, vox)
-            print(stft_hann_a1[saveIndx], stft_bt_a1[saveIndx], stft_nt_a1[saveIndx], stft_ntB_a1[saveIndx])
+            stft_hann[saveIndx]= spc_eval_stft_hann(1., mixKaraoke, vox)
+            stft_bt[saveIndx] = spc_eval_stft_bt(1., mixKaraoke, vox)
+            stft_nt[saveIndx] = spc_eval_stft_nt(1., mixKaraoke, vox)
+            stft_hamming[saveIndx] = spc_eval_stft_hamming(1., mixKaraoke, vox)
 
-            np.save('WDOExperiment/spc_stft_hann_a1.npy', stft_hann_a1)
-            np.save('WDOExperiment/spc_stft_bt_a1.npy', stft_bt_a1)
-            np.save('WDOExperiment/spc_stft_nt_a1.npy', stft_nt_a1)
-            np.save('WDOExperiment/spc_stft_ntB_a1.npy', stft_ntB_a1)
+            np.save('WDOExperiment/spc_stft_hann.npy', stft_hann)
+            np.save('WDOExperiment/spc_stft_bt.npy', stft_bt)
+            np.save('WDOExperiment/spc_stft_nt.npy', stft_nt)
+            np.save('WDOExperiment/spc_stft_hamming.npy', stft_hamming)
 
+            stft_hann_symm[saveIndx]= spc_eval_stft_hann_symm(1., mixKaraoke, vox)
+            stft_bt_symm[saveIndx] = spc_eval_stft_bt_symm(1., mixKaraoke, vox)
+            stft_nt_symm[saveIndx] = spc_eval_stft_nt_symm(1., mixKaraoke, vox)
+            stft_hamming_symm[saveIndx] = spc_eval_stft_hamming_symm(1., mixKaraoke, vox)
+
+            np.save('WDOExperiment/spc_stft_hann_symm.npy', stft_hann_symm)
+            np.save('WDOExperiment/spc_stft_bt_symm.npy', stft_bt_symm)
+            np.save('WDOExperiment/spc_stft_nt_symm.npy', stft_nt_symm)
+            np.save('WDOExperiment/spc_stft_hamming_symm.npy', stft_hamming_symm)
 
         elif selection == 'mdct':
             print('MDCT')
@@ -761,8 +830,8 @@ def mainSPC(selection):
             mdcst_a1[saveIndx] = spc_eval_mdcst_complex(1., mixKaraoke, vox)
             print(mdct_a1[saveIndx], mdcst_a1[saveIndx])
 
-            np.save('WDOExperiment/spc_mdct_a1.npy', mdct_a1)
-            np.save('WDOExperiment/spc_mdcst_a1.npy', mdcst_a1)
+            #np.save('WDOExperiment/spc_mdct_a1.npy', mdct_a1)
+            #np.save('WDOExperiment/spc_mdcst_a1.npy', mdcst_a1)
 
 
         elif selection == 'pqmf':
@@ -770,7 +839,7 @@ def mainSPC(selection):
             # Alpha = 1.
             pqmf_cos_a1[saveIndx] = spc_eval_pqmf_cos(1., mixKaraoke, vox)
             print(pqmf_cos_a1[saveIndx])
-            np.save('WDOExperiment/spc_pqmf_cos_a1.npy', pqmf_cos_a1)
+            #np.save('WDOExperiment/spc_pqmf_cos_a1.npy', pqmf_cos_a1)
 
 
         elif selection == 'pqmf_complex':
@@ -778,15 +847,15 @@ def mainSPC(selection):
             # Alpha = 1.
             pqmf_compl_a1[saveIndx] = spc_eval_pqmf_complex(1., mixKaraoke, vox)
             print(pqmf_compl_a1[saveIndx])
-            np.save('WDOExperiment/spc_pqmf_compl_a1.npy', pqmf_compl_a1)
+            #np.save('WDOExperiment/spc_pqmf_compl_a1.npy', pqmf_compl_a1)
 
         elif selection == 'mp':
             print('Matching Pursuit')
             mdct_union_mp_ovdt[saveIndx] = spc_eval_dct_union_mp_ovdt(mixKaraoke, vox)
             dctdst_union_mp_ovdt[saveIndx] = spc_eval_dctdst_mp(mixKaraoke, vox)
             print(mdct_union_mp_ovdt[saveIndx], dctdst_union_mp_ovdt[saveIndx])
-            np.save('WDOExperiment/spc_mdctdst_union_mp_ovdt.npy', dctdst_union_mp_ovdt)
-            np.save('WDOExperiment/spc_mdct_union_mp_ovdt.npy', mdct_union_mp_ovdt)
+            #np.save('WDOExperiment/spc_mdctdst_union_mp_ovdt.npy', dctdst_union_mp_ovdt)
+            #np.save('WDOExperiment/spc_mdct_union_mp_ovdt.npy', mdct_union_mp_ovdt)
 
         else :
             assert('Unknown Selection!')
@@ -800,11 +869,11 @@ if __name__ == "__main__":
 
     # Define Operation
     # Plot acquired results
-    #operation = 'Results'
+    operation = 'Results'
     # Run the disjointness experiment
     #operation = 'WDO'
     # Run the sparsity experiment
-    operation = 'Sparsity'
+    #operation = 'Sparsity'
 
     print(operation)
     # Select multi processing feature
@@ -859,24 +928,29 @@ if __name__ == "__main__":
             mainSPC('mdct')
             mainSPC('pqmf')
             mainSPC('pqmf_complex')
-            #mainSPC('mp')                  #TODO : Investigation for better dictionaries
+            mainSPC('mp')
 
     if operation == 'Results':
         print('Loading WDO Results')
 
-        stft_hann_a1,stft_bt_a1, stft_nt_a1, stft_ntB_a1, mdct_a1, mdcst_a1, pqmf_cos_a1,\
-        pqmf_compl_a1, mdct_union_mp_ovdt, mdctdst_union_mp_ovdt = load_results()
+        stft_hann, stft_bt, stft_nt, stft_hamm, mdct_a1, mdcst_a1, pqmf_cos_a1,\
+        pqmf_compl_a1, mdct_union_mp_ovdt, mdctdst_union_mp_ovdt, stft_hann_symm, stft_bt_symm,\
+        stft_nt_symm, stft_hamm_symm = load_results()
 
-        data = np.vstack((stft_hann_a1, stft_bt_a1, stft_nt_a1, stft_ntB_a1, mdct_a1, mdcst_a1,
-                          pqmf_cos_a1, pqmf_compl_a1, mdct_union_mp_ovdt)).T
+        dataF = np.vstack((stft_nt, stft_nt_symm, stft_hann, stft_hann_symm, stft_bt, stft_bt_symm, stft_hamm,stft_hamm_symm)).T
 
-        data = np.delete(data, (85,87), 0)
+        dataF = np.sort(dataF, axis = 0)[2:, :]
 
-        colors = ['cyan', 'cyan', 'cyan', 'cyan', 'lightgreen', 'lightgreen', 'pink',
-                  'pink', 'gray', 'gray', 'pink']
+        dataA = np.vstack((stft_hamm, mdct_a1, mdcst_a1, pqmf_cos_a1, pqmf_compl_a1)).T
+        dataA = np.sort(dataA, axis = 0)[2:, :]
 
-        labels = ['STFT-H 50%', 'STFT-Bt 50%', 'STFT-Nt 75%', 'STFT-Nt 50%', 'MDCT', 'MDCST',
-                  'PQMF-cos', 'PQMF-complex', 'union']
+        colors = ['cyan', 'pink', 'cyan', 'pink', 'cyan', 'pink', 'cyan', 'pink']
+
+        colorsA = ['cyan', 'lightgreen', 'lightgreen', 'pink', 'pink']
+
+        labels = ['STFT-Nt', 's-STFT-Nt', 'STFT-Hn', 's-STFT-Hn','STFT-Bt', 's-STFT-Bt','STFT-Hm', 's-STFT-Hm']
+
+        labelsA = ['STFT-Hm', 'MDCT', 'MDCST', 'PQMF-cos', 'PQMF-complex']
 
         meanpointprops = dict(marker='D', markeredgecolor='black', markerfacecolor='firebrick')
 
@@ -884,7 +958,19 @@ if __name__ == "__main__":
         plt.figure(1)
         rcParams['xtick.labelsize'] = 19
         rcParams.update({'font.size': 22})
-        box = plt.boxplot(data, notch = True, patch_artist = True, labels = labels, meanprops=meanpointprops, meanline=False,
+        box = plt.boxplot(dataA, notch = True, patch_artist = True, labels = labelsA, meanprops=meanpointprops, meanline=False,
+                   showmeans=True)
+
+        for patch, color in zip(box['boxes'], colorsA):
+            patch.set_facecolor(color)
+
+        plt.ylabel('W-DO Measure', fontsize=22)
+        plt.show(block = False)
+
+        plt.figure(2)
+        rcParams['xtick.labelsize'] = 19
+        rcParams.update({'font.size': 22})
+        box = plt.boxplot(dataF, notch = True, patch_artist = True, labels = labels, meanprops=meanpointprops, meanline=False,
                    showmeans=True)
 
         for patch, color in zip(box['boxes'], colors):
@@ -893,27 +979,27 @@ if __name__ == "__main__":
         plt.ylabel('W-DO Measure', fontsize=22)
         plt.show(block = False)
 
+
         print('Loading Sparsity Results')
-        spc_stft_hann_mix, spc_stft_bt_mix, spc_stft_nt_mix, spc_stft_ntB_mix, spc_mdct_mix,\
-        spc_mdcst_mix, spc_pqmf_mix, spc_pqmf_comp_mix = load_SPCresults()
+        spc_stft_hann, spc_stft_bt, spc_stft_nt, spc_stft_hamm, spc_mdct,\
+        spc_mdcst, spc_pqmf, spc_pqmf_comp, spc_stft_hann_symm, spc_stft_bt_symm,\
+        spc_stft_nt_symm, spc_stft_hamm_symm = load_SPCresults()
 
 
-        dataMIX = np.vstack((spc_stft_hann_mix, spc_stft_bt_mix, spc_stft_nt_mix, spc_stft_ntB_mix,
-                             spc_mdct_mix, spc_mdcst_mix, spc_pqmf_mix, spc_pqmf_comp_mix)).T
+        dataMIXF = np.vstack((spc_stft_hann, spc_stft_bt, spc_stft_nt, spc_stft_hamm,
+                             spc_mdct, spc_mdcst, spc_pqmf, spc_pqmf_comp)).T
 
-        dataMIX = np.delete(dataMIX, (85,87), 0)
+        dataMIXA = np.vstack((spc_stft_hamm, spc_mdct, spc_mdcst, spc_pqmf, spc_pqmf_comp)).T
 
-        colors = ['cyan', 'cyan', 'lightblue', 'lightblue', 'lightgreen', 'lightgreen',
-                  'pink', 'pink', 'gray', 'gray', 'gray']
+        colorsA = ['cyan', 'lightgreen', 'lightgreen', 'pink', 'pink']
 
-        labels = ['STFT-H 50%', 'STFT-Bt 50%', 'STFT-Nt 75%', 'STFT-Nt 50%', 'MDCT', 'MDCST',
-                  'PQMF-cos', 'PQMF-complex']
+        labelsA = ['STFT-Hm', 'MDCT', 'MDCST', 'PQMF-cos', 'PQMF-complex']
 
         meanpointprops = dict(marker='D', markeredgecolor='black', markerfacecolor='firebrick')
 
         # Configure Boxplot
-        plt.figure(2)
-        box2 = plt.boxplot(dataMIX, notch = True, patch_artist = True, labels = labels, meanprops=meanpointprops, meanline=False,
+        plt.figure(3)
+        box2 = plt.boxplot(dataMIXA, notch = True, patch_artist = True, labels = labelsA, meanprops=meanpointprops, meanline=False,
                    showmeans=True)
         for patch, color in zip(box2['boxes'], colors):
             patch.set_facecolor(color)
