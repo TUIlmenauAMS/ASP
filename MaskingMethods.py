@@ -42,6 +42,13 @@ class FrequencyMasking:
 			else :
 				FrequencyMasking.applyReverseMask(self)
 
+		elif (self._method == 'IAM'):
+			FrequencyMasking.IAM(self)
+			if not(reverse) :
+				FrequencyMasking.applyMask(self)
+			else :
+				FrequencyMasking.applyReverseMask(self)
+
 		elif (self._method == 'IBM'):
 			FrequencyMasking.IBM(self)
 			if not(reverse) :
@@ -71,6 +78,13 @@ class FrequencyMasking:
 			else :
 				FrequencyMasking.applyReverseMask(self)
 
+		elif (self._method == 'expMask'):
+			FrequencyMasking.ExpM(self)
+			if not(reverse) :
+				FrequencyMasking.applyMask(self)
+			else :
+				FrequencyMasking.applyReverseMask(self)
+
 		return self._Out
 
 	def IRM(self):
@@ -88,6 +102,37 @@ class FrequencyMasking:
 		"""
 		print('Ideal Amplitude Ratio Mask')
 		self._mask = np.divide(self._sTarget, (self._eps + self._sTarget + self._nResidual))
+
+	def IAM(self):
+		"""
+			Computation of Ideal Amplitude Mask. As appears in :
+			H Erdogan, John R. Hershey, Shinji Watanabe, and Jonathan Le Roux,
+	   		"Phase-sensitive and recognition-boosted speech separation using deep recurrent neural networks,"
+	   		in ICASSP 2015, Brisbane, April, 2015.
+		Args:
+			sTarget:   (2D ndarray) Magnitude Spectrogram of the target component
+			nResidual: (2D ndarray) Magnitude Spectrogram of the residual component
+									(In this case the observed mixture should be placed)
+		Returns:
+			mask:      (2D ndarray) Array that contains time frequency gain values
+
+		"""
+		print('Ideal Amplitude Mask')
+		self._mask = np.divide(self._sTarget, (self._eps + self._nResidual))
+
+	def ExpM(self):
+		"""
+			Computation of exponential mask.
+		Args:
+			sTarget:   (2D ndarray) Magnitude Spectrogram of the target component
+			nResidual: (2D ndarray) Magnitude Spectrogram of the residual component
+		Returns:
+			mask:      (2D ndarray) Array that contains time frequency gain values
+
+		"""
+		print('Exponential mask')
+		self._mask = np.divide(np.log(self._sTarget.clip(self._eps, np.inf)**self._alpha),\
+							   np.log(self._nResidual.clip(self._eps, np.inf)**self._alpha))
 
 	def IBM(self):
 		"""
@@ -208,8 +253,10 @@ class FrequencyMasking:
 		Returns:
 			Y:      (2D ndarray) Filtered version of the Magnitude Spectrogram
 		"""
-
-		self._Out = np.multiply(self._mask, self._mX)
+		if self._method == 'expMask':
+			self._Out = (self._mX ** self._alpha) ** self._mask
+		else :
+			self._Out = np.multiply(self._mask, self._mX)
 
 	def applyReverseMask(self):
 		""" Compute the filtered output spectrogram, reversing the gain values.
@@ -219,8 +266,10 @@ class FrequencyMasking:
 		Returns:
 			Y:      (2D ndarray) Filtered version of the Magnitude Spectrogram
 		"""
-
-		self._Out = np.multiply( (1. - self._mask), self._mX)
+		if self._method == 'expMask':
+			raise ValueError('Cannot compute that using such masking method.')
+		else :
+			self._Out = np.multiply( (1. - self._mask), self._mX)
 
 if __name__ == "__main__":
 
