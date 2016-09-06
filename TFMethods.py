@@ -5,7 +5,7 @@ __copyright__ = 'MacSeNet'
 import math
 import numpy as np
 from scipy.fftpack import fft, ifft, dct, dst
-from scipy.signal import firwin2, freqz, cosine, hanning
+from scipy.signal import firwin2, freqz, cosine, hanning, fftconvolve
 from scipy.interpolate import InterpolatedUnivariateSpline as uspline
 
 eps = np.finfo(np.float32).tiny
@@ -13,9 +13,7 @@ eps = np.finfo(np.float32).tiny
 class TimeFrequencyDecomposition:
     """ A Class that performs time-frequency decompositions by means of a
         Discrete Fourier Transform, using Fast Fourier Transform algorithm
-        by SciPy. Currently, inverse synthesis is being supported for
-        Gabor transformations and it's variants, alongside with Zero-phase windowing
-        technique with arbitrary window size (odd numbers are prefered).
+        by SciPy, MDCT-type IV and Fractional Fast Fourier Transform.
     """
     @staticmethod
     def DFT(x, w, N):
@@ -110,9 +108,6 @@ class TimeFrequencyDecomposition:
 
         # Analysis Parameters
         wsz = w.size
-
-        hw1 = int(math.floor((wsz+1)/2))
-        hw2 = int(math.floor(wsz/2))
 
         # Add some zeros at the start and end of the signal to avoid window smearing
         x = np.append(np.zeros(3*hop),x)
@@ -285,6 +280,7 @@ class TimeFrequencyDecomposition:
         """
         # Parameters and windowing function design
         win = cosine(2*N, True)
+        win /= np.sum(win)
         lfb = len(win)
         nTimeSlots = len(x)/N - 2
 
@@ -321,6 +317,7 @@ class TimeFrequencyDecomposition:
         """
         # Parameters and windowing function design
         win = cosine(2*N, True)
+        win *= np.sum(win)
         lfb = len(win)
         nTimeSlots = y.shape[0]
         SignalLength = nTimeSlots * N + 2 * N
@@ -342,13 +339,48 @@ class TimeFrequencyDecomposition:
         return xrec.T
 
     @staticmethod
+    def real_analysis(x, N = 1024):
+        """
+            Method to compute the subband samples from time domain signal x.
+            A complex output matrix will be computed using DCT and DST.
+
+            Arguments   :
+                x       : (1D Array) Input signal
+                N       : (int)      Number of sub-bands
+
+            Returns     :
+                y       : (2D Array) Complex output of QMF analysis matrix (Cosine)
+
+            Usage       : y = TimeFrequencyDecomposition.complex_analysis(x, N)
+
+        """
+        # Parameters and windowing function design
+        win = cosine(2*N, True)
+        win /= np.sum(win)
+        lfb = len(win)
+        nTimeSlots = len(x)/N - 2
+
+        # Initialization
+        ycos = np.zeros((len(x)/N, N), dtype = np.float32)
+        ysin = np.zeros((len(x)/N, N), dtype = np.float32)
+
+        # Analysis Matrices
+        Cos, _ = TimeFrequencyDecomposition.coreModulation(win, N)
+
+        # Perform Complex Analysis
+        for m in xrange(0, nTimeSlots):
+            ycos[m, :] = np.dot(x[m * N : m * N + lfb], Cos.T)
+
+        return ycos
+
+    @staticmethod
     def real_synthesis(y, N = 1024):
         """
             Method to compute the resynthesis of the MDCT.
             A complex input matrix is asummed as input, derived from DCT typeIV.
 
             Arguments   :
-                y       : (2D Array) Complex Representation
+                y       : (2D Array) Real Representation
 
             Returns     :
                 xrec    : (1D Array) Time domain reconstruction
@@ -358,6 +390,7 @@ class TimeFrequencyDecomposition:
         """
         # Parameters and windowing function design
         win = cosine(2*N, True)
+        win *= np.sum(win)
         lfb = len(win)
         nTimeSlots = y.shape[0]
         SignalLength = nTimeSlots * N + 2 * N
@@ -374,6 +407,194 @@ class TimeFrequencyDecomposition:
 
         xrec = zcos
         return xrec.T
+
+    @staticmethod
+    def frft(f, a):
+        """
+        Fractional Fourier transform. As appears in :
+        -https://nalag.cs.kuleuven.be/research/software/FRFT/
+        -https://github.com/audiolabs/frft/
+        Args:
+            f       : (array) Input data
+            a       : (float) Alpha factor
+        Returns:
+            ret    : (array) Complex valued analysed data
+
+        """
+        ret = np.zeros_like(f, dtype=np.complex)
+        f = f.copy().astype(np.complex)
+        N = len(f)
+        shft = np.fmod(np.arange(N) + np.fix(N / 2), N).astype(int)
+        sN = np.sqrt(N)
+        a = np.remainder(a, 4.0)
+
+        # Special cases
+        if a == 0.0:
+            return f
+        if a == 2.0:
+            return np.flipud(f)
+        if a == 1.0:
+            ret[shft] = np.fft.fft(f[shft]) / sN
+            return ret
+        if a == 3.0:
+            ret[shft] = np.fft.ifft(f[shft]) * sN
+            return ret
+
+        # reduce to interval 0.5 < a < 1.5
+        if a > 2.0:
+            a = a - 2.0
+            f = np.flipud(f)
+        if a > 1.5:
+            a = a - 1
+            f[shft] = np.fft.fft(f[shft]) / sN
+        if a < 0.5:
+            a = a + 1
+            f[shft] = np.fft.ifft(f[shft]) * sN
+
+        # the general case for 0.5 < a < 1.5
+        alpha = a * np.pi / 2
+        tana2 = np.tan(alpha / 2)
+        sina = np.sin(alpha)
+        f = np.hstack((np.zeros(N - 1), TimeFrequencyDecomposition.sincinterp(f), np.zeros(N - 1))).T
+
+        # chirp premultiplication
+        chrp = np.exp(-1j * np.pi / N * tana2 / 4 * np.arange(-2 * N + 2, 2 * N - 1).T ** 2)
+        f = chrp * f
+
+        # chirp convolution
+        c = np.pi / N / sina / 4
+        ret = fftconvolve(np.exp(1j * c * np.arange(-(4 * N - 4), 4 * N - 3).T ** 2), f)
+        ret = ret[4 * N - 4:8 * N - 7] * np.sqrt(c / np.pi)
+
+        # chirp post multiplication
+        ret = chrp * ret
+
+        # normalizing constant
+        ret = np.exp(-1j * (1 - a) * np.pi / 4) * ret[N - 1:-N + 1:2]
+
+        return ret
+
+    @staticmethod
+    def ifrft(f, a):
+        """
+        Inverse fractional Fourier transform. As appears in :
+        -https://nalag.cs.kuleuven.be/research/software/FRFT/
+        -https://github.com/audiolabs/frft/
+        ----------
+        Args:
+            f       : (array) Complex valued input array
+            a       : (float) Alpha factor
+        Returns:
+            ret     : (array) Real valued synthesised data
+        """
+        return TimeFrequencyDecomposition.frft(f, -a)
+
+    @staticmethod
+    def sincinterp(x):
+        """
+        Sinc interpolation for computation of fractional transformations.
+        As appears in :
+        -https://github.com/audiolabs/frft/
+        ----------
+        Args:
+            f       : (array) Complex valued input array
+            a       : (float) Alpha factor
+        Returns:
+            ret     : (array) Real valued synthesised data
+        """
+        N = len(x)
+        y = np.zeros(2 * N - 1, dtype=x.dtype)
+        y[:2 * N:2] = x
+        xint = fftconvolve( y[:2 * N], np.sinc(np.arange(-(2 * N - 3), (2 * N - 2)).T / 2),)
+        return xint[2 * N - 3: -2 * N + 3]
+
+    @staticmethod
+    def stfrft(x, w, hop, a):
+        """ Short Time Fractional Fourier Transform analysis of a given real input signal,
+        via the above DFT method.
+        Args:
+            x   : 	(array)  Magnitude Spectrum
+            w   :   (array)  Desired windowing function determining the analysis size
+            hop :   (int)    Hop size
+            a   :   (float)  Alpha factor
+        Returns:
+            sMx :   (2D ndarray) Stacked arrays of magnitude spectra
+            sPx :   (2D ndarray) Stacked arrays of phase spectra
+        """
+
+        # Analysis Parameters
+        wsz = w.size
+
+        # Add some zeros at the start and end of the signal to avoid window smearing
+        x = np.append(np.zeros(3*hop),x)
+        x = np.append(x, np.zeros(3*hop))
+
+        # Initialize sound pointers
+        pin = 0
+        pend = x.size - wsz
+        indx = 0
+
+        # Initialize storing matrix
+        xmX = np.zeros((len(x)/hop, wsz), dtype = np.float32)
+        xpX = np.zeros((len(x)/hop, wsz), dtype = np.float32)
+
+        # Analysis Loop
+        while pin <= pend:
+            # Acquire Segment
+            xSeg = x[pin:pin+wsz] * w
+
+            # Perform frFT on segment
+            cX = TimeFrequencyDecomposition.frft(xSeg, a)
+
+            xmX[indx, :] = np.abs(cX)
+            xpX[indx, :] = np.angle(cX)
+
+            # Update pointers and indices
+            pin += hop
+            indx += 1
+
+        return xmX, xpX
+
+    @staticmethod
+    def istfrft(xmX, xpX, hop, a):
+        """ Short Time Fractional Fourier Transform synthesis of given magnitude and phase spectra.
+        Args:
+            xmX :   (2D ndarray)  Magnitude Spectrum
+            xpX :   (2D ndarray)  Phase Spectrum
+            hop :   (int)         Hop Size
+            a   :   (float)       Alpha factor
+        Returns :
+            y   :   (array) Synthesised time-domain real signal.
+        """
+        # Acquire the number of frames
+        numFr = xmX.shape[0]
+        # Amount of samples
+        wsz = xmX.shape[1]
+
+
+        # Initialise output array with zeros
+        y = np.zeros(numFr * hop + wsz)
+
+        # Initialise sound pointer
+        pin = 0
+
+        # Main Synthesis Loop
+        for indx in range(numFr):
+            # Inverse FrFT
+            cX = xmX[indx, :] * np.exp(1j*xpX[indx, :])
+            ybuffer = TimeFrequencyDecomposition.ifrft(cX, a)
+
+            # Overlap and Add
+            y[pin:pin+wsz] += np.real(ybuffer)
+
+            # Advance pointer
+            pin += hop
+
+        # Delete the extra zeros that the analysis had placed
+        y = np.delete(y, range(3*hop))
+        y = np.delete(y, range(y.size-(3*hop + 1), y.size))
+
+        return y
 
 class CepstralDecomposition:
     """ A Class that performs a cepstral decomposition based on the
@@ -679,7 +900,12 @@ class PsychoacousticModel:
         return Xhat
 
     def OutMidCorrection(self, correctionType, firOrd, fs):
-
+        """
+        Method to "correct" the middle outer ear transfer function.
+            As appears in :
+            - A. Härmä, and K. Palomäki, ''HUTear – a free Matlab toolbox for modeling of human hearing'',
+            in Proceedings of the Matlab DSP Conference, pp 96-99, Espoo, Finland 1999.
+        """
         # Lookup tables for correction
         f1 = np.array([20, 25, 30, 35, 40, 45, 50, 55, 60, 70, 80, 90, 100, \
         125, 150, 177, 200, 250, 300, 350, 400, 450, 500, 550, \
@@ -728,6 +954,9 @@ class PsychoacousticModel:
     def MOEar(self, correctionType = 'ELC'):
         """ Method to approximate middle-outer ear transfer function for linearly scaled
             frequency representations, using an FIR approximation of order 600 taps.
+            As appears in :
+            - A. Härmä, and K. Palomäki, ''HUTear – a free Matlab toolbox for modeling of human hearing'',
+            in Proceedings of the Matlab DSP Conference, pp 96-99, Espoo, Finland 1999.
         Arguments          :
             correctionType : (string)     String which specifies the type of correction :
                                           'ELC' - Equal Loudness Curves at 60 dB (default)
@@ -752,10 +981,14 @@ class PsychoacousticModel:
 
     def maskingThreshold(self, mX):
         """ Method to compute the masking threshold by non-linear superposition.
-        As appears in :
+        As used in :
         - G. Schuller, B. Yu, D. Huang and B. Edler, "Perceptual Audio Coding Using Adaptive
         Pre and Post-filters and Lossless Compression", in IEEE Transactions on Speech and Audio Processing,
         vol. 10, n. 6, pp. 379-390, September, 2002.
+        As appears in :
+        - F. Baumgarte, C. Ferekidis, H Fuchs,  "A Nonlinear Psychoacoustic Model Applied to ISO/MPEG Layer 3 Coder",
+        in Proceedings of the 99th Audio Engineering Society Convention, October, 1995.
+
         Args         :
             mX       : (ndarray)    2D Array containing the magnitude spectra (1 time frame x frequency subbands)
         Returns      :
@@ -828,7 +1061,7 @@ class PsychoacousticModel:
         imT = 1./(mT + eps)
 
         # Outer/Middle Ear transfer function on the diagonal
-        LTq = 10 ** (pm.MOEar()/20.)
+        LTq = 10 ** (self.MOEar()/20.)
         LTq = LTq * np.identity(len(LTq))
 
         # NMR computation
@@ -862,8 +1095,8 @@ class WDODisjointness:
                 (float) Ratio of the squared Frobenious norms of each quantity.
         """
         num = ((np.sqrt(np.sum((Mask * TrueTarget) ** 2.))) ** 2.) + eps
-        denum = ((np.sqrt(np.sum(TrueTarget ** 2.))) ** 2.) + eps
-        return num/denum
+        denom = ((np.sqrt(np.sum(TrueTarget ** 2.))) ** 2.) + eps
+        return num/denom
 
     @staticmethod
     def SIR(Mask, TrueTarget, InterferingSources):
@@ -879,8 +1112,8 @@ class WDODisjointness:
                 (float) Ratio of the squared Frobenious norms of each quantity.
         """
         num = ((np.sqrt(np.sum( (Mask * TrueTarget) ** 2.))) ** 2.) + eps
-        denum = ((np.sqrt(np.sum( (Mask * InterferingSources) ** 2.))) ** 2.) + eps
-        return num/denum
+        denom = ((np.sqrt(np.sum( (Mask * InterferingSources) ** 2.))) ** 2.) + eps
+        return num/denom
 
     @staticmethod
     def WDO(PSR, SIR):
@@ -954,8 +1187,9 @@ if __name__ == "__main__":
     magX, phsX =  TimeFrequencyDecomposition.STFT(mix, w, 2048, 512)
     magN, phsN =  TimeFrequencyDecomposition.STFT(noise, w, 2048, 512)
     # MDC(S)T Test
-    #y = TimeFrequencyDecomposition.complex_analysis(mix, 1024)
-    #yrek = TimeFrequencyDecomposition.complex_synthesis(y, 1024)
+    #yA = TimeFrequencyDecomposition.complex_analysis(mix[:, 0], 1024)
+    #yrek = TimeFrequencyDecomposition.complex_synthesis(yA, 1024)
+
     #y = np.real(y)
 
     # Usage of psychoacoustic model
@@ -968,8 +1202,10 @@ if __name__ == "__main__":
     #mt_y = pm.maskingThreshold(np.abs(y))
 
     sound = TimeFrequencyDecomposition.iSTFT(magX, phsX, 2048, 512)
-    sound2 = TimeFrequencyDecomposition.iSTFT(magN * (mt), phsN, 2048, 512)
+    #sound2 = TimeFrequencyDecomposition.iSTFT(magN * (mt), phsN, 2048, 512)
 
     # Test the NMR Function
-    NMR = pm.NMREval(sound, sound+sound2)
+    #NMR = pm.NMREval(sound, sound+sound2)
     #print(NMR)
+
+    import QMF.qmf_realtime_class as qrf
