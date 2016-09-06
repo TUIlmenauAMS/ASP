@@ -4,7 +4,7 @@
 It covers a range of utilities for I/O handling and Time-Frequency Decompositions and soon enough audio source separation methods.
 Currently supported functionallity :
 - WAV/MP3/AAC Reading and Writing
-- Time Frequency Methods : MDCT/MDST/PQMF/STFT
+- Time Frequency Methods : MDCT/MDST/PQMF/STFT/FrFFT(Fractional FFT)
 - Cepstral Analysis : Uniform Discrete Cepstrum
 - Misc Operations : Bark Scaling, W-Disjoint Orthogonality Measure
 
