@@ -1160,15 +1160,15 @@ class WDODisjointness:
         GI = np.zeros(mX.shape[0], dtype = np.float32)
         for frame in xrange(0, mX.shape[0]):
             vector = mX[frame, :]
-            sortedVector = np.sort(np.abs(vector))
+            sortedVector = np.sort(np.abs(vector), axis = 0)
             l1norm = np.sum(sortedVector) + eps
             if l1norm == 0 or l1norm <= eps:
                 GI[frame] = 0
             else :
                 cgi = 0.
-                k = np.arange(1, len(sortedVector)+1)
+                k = np.arange(len(sortedVector)) + 1
                 cgi = (sortedVector[k - 1]/l1norm) * ((len(sortedVector) - k + 0.5)/len(sortedVector))
-                GI[frame] = (1. - 2.* np.sum(cgi))
+                GI[frame] = (1./len(sortedVector) + 1. - 2.* np.sum(cgi))
 
         return GI
 
