@@ -53,6 +53,11 @@ w = np.bartlett(wsz)
 # Normalise windowing function
 w = w / sum(w)
 
+#Sine window: choose this for sine windowing for energy conservation (Parseval Theorem):
+w=np.sin(np.pi/wsz*np.arange(0.5,wsz))
+
+print("w.shape = ", w.shape)
+
 # Initialize psychoacoustic mode
 pm = TF.PsychoacousticModel(N = N, fs = fs, nfilts = 64)
 
@@ -90,7 +95,7 @@ screenbg.blit(xlabel, (895, 460))
 screenbg.blit(ylabel, (0, 5))
 screenbg.blit(legendA, (800, 0))
 screenbg.blit(legendB, (800, 15))
-#offset = font.render("Masking Threshold Offset in dB: " + str(gain), 1, (0, 250, 0))
+#offset = font.render("Masking Threshold Offset (NMR) in dB: " + str(gain), 1, (0, 250, 0))
 #bpc = font.render("Est. average bits per subband: " + str(bc), 1, (190, 160, 110))
 helptext = font.render("(Adjust the threshold by pressing 'Up' & 'Down' Arrow keys)", 1, (0, 250, 0))
 #screenbg.blit(offset, (300, 0))
@@ -205,7 +210,7 @@ while run == True:
                 screen.blit(legendA, (800, 0))
                 screen.blit(legendB, (800, 15))
 		"""
-                offset = font.render("Masking Threshold Offset in dB: " + str(gain), 1, (0, 250, 0))
+                offset = font.render("Masking Threshold Offset (NMR) in dB: " + str(gain), 1, (0, 250, 0))
 		bpc = font.render("Est. average bits per subband: " + str(bc), 1, (190, 160, 110))
 		screen.blit(bpc, (300, 30))
 		screen.blit(offset, (300, 0))
@@ -246,7 +251,10 @@ while run == True:
 	#Add noise according to masking threshold:
 	mixf=X+mt[0,:]*nSeg
         #xSeg = TF.TimeFrequencyDecomposition.iDFT(mX, pX, wsz)
-	mix=np.real(ifft(mixf, n=N,norm='ortho')[:N/2])*hop
+	#choose this for Bartlett window:
+	#mix=np.real(ifft(mixf, n=N,norm='ortho')[:N/2])*hop
+	#Choose this for sine windowing:
+        mix=np.real(ifft(mixf, n=N,norm='ortho')[:N/2])*w
         #mix = (xSeg + nSeg) * hop
 
         ola_buffer[0, 0:wsz] = prv_seg
