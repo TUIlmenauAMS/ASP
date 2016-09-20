@@ -669,6 +669,8 @@ class PsychoacousticModel:
         self.W_inv = self.bark2mX()
 
         # Non-linear superposition parameters
+	#Set alpha below for suitable exponents for non-linear superposition!
+	#After Baumgarten: alpha = 0.3 for power, hence 2*0.3=0.6 for our "voltage":
         self._alpha = 0.6
         self._maxb = 1./self.nfilts
         self._fa = 1./(10 ** (14.5/20.) * 10 ** (12./20.))
@@ -993,7 +995,7 @@ class PsychoacousticModel:
             mX       : (ndarray)    2D Array containing the magnitude spectra (1 time frame x frequency subbands)
         Returns      :
             mT       : (ndarray)    2D Array containing the masking threshold.
-
+	Set alpha in __init__ for suitable exponents for non-linear superposition!
         Authors      : Gerald Schuller('shl'), S.I. Mimilakis ('mis')
         """
         # Bark Scaling with the initialized, from the class, matrix W.
