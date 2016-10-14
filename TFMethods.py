@@ -669,14 +669,12 @@ class PsychoacousticModel:
         self.W_inv = self.bark2mX()
 
         # Non-linear superposition parameters
-	#Set alpha below for suitable exponents for non-linear superposition!
-	#After Baumgarten: alpha = 0.3 for power, hence 2*0.3=0.6 for our "voltage":
-        self._alpha = 0.6
-        self._maxb = 1./self.nfilts
-        self._fa = 1./(10 ** (14.5/20.) * 10 ** (12./20.))
-        self._fb = 1./(10**(7.5/20.))
-        self._fbb = 1./(10**(26./20.))
-        self._fd = 1./self._alpha
+        self._alpha = 0.6                                       # Exponent alpha
+        self._maxb = 1./self.nfilts                             # Bark-band normalization
+        self._fa = 1./(10 ** (14.5/20.) * 10 ** (12./20.))      # Tone masking approximation
+        self._fb = 1./(10**(7.5/20.))                           # Upper slope of spreading function
+        self._fbb = 1./(10**(26./20.))                          # Lower slope of spreading function
+        self._fd = 1./self._alpha                               # One over alpha exponent
 
     def mX2Bark(self, type):
         """ Method to perform the transofrmation.
@@ -995,7 +993,7 @@ class PsychoacousticModel:
             mX       : (ndarray)    2D Array containing the magnitude spectra (1 time frame x frequency subbands)
         Returns      :
             mT       : (ndarray)    2D Array containing the masking threshold.
-	Set alpha in __init__ for suitable exponents for non-linear superposition!
+
         Authors      : Gerald Schuller('shl'), S.I. Mimilakis ('mis')
         """
         # Bark Scaling with the initialized, from the class, matrix W.
@@ -1018,10 +1016,10 @@ class PsychoacousticModel:
             mT = np.zeros((Numsubbands))
             for n in xrange(Numsubbands):
                 for m in xrange(0, n):
-                    mT[n] += (mX[frameindx, m]*self._fa * (self._fb ** ((n - m) * fc))) ** self._alpha
+                    mT[n] += (mX[frameindx, m] * self._fa * (self._fb ** ((n - m) * fc))) ** self._alpha
 
                 for m in xrange(n+1, Numsubbands):
-                    mT[n] += (mX[frameindx, m]*self._fa * (self._fbb ** ((m - n) * fc))) ** self._alpha
+                    mT[n] += (mX[frameindx, m] * self._fa * (self._fbb ** ((m - n) * fc))) ** self._alpha
 
                 mT[n] = mT[n] ** (self._fd)
 
@@ -1036,7 +1034,6 @@ class PsychoacousticModel:
         return maskingThreshold
 
     def NMREval(self, xn, xnhat):
-
         """ Method to perform NMR perceptual evaluation of audio quality between two signals.
         Args        :
             xn      :   (ndarray) 1D Array containing the true time domain signal.
