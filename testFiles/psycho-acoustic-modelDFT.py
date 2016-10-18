@@ -25,15 +25,15 @@ class PsychoacousticModel:
     """
     def __init__(self, N = 4096, fs = 44100, nfilts=24, type = 'rasta', width = 1.0, minfreq=0, maxfreq=22050):
 
-        self.nfft = N
-        self.fs = fs
-        self.nfilts = nfilts
-        self.width = width
-        self.min_freq = minfreq
-        self.max_freq = maxfreq
-        self.max_freq = fs/2
-        self.nfreqs = N/2
-        self._LTeq = np.zeros(nfilts, dtype = np.float32)
+        self.nfft = N                                       # Number of sub-bands in the prior analysis (e.g. from DFT)
+        self.fs = fs                                        # Sampling Frequency
+        self.nfilts = nfilts                                # Number of filters considered for the scaling
+        self.width = width                                  # Width of the filters for RASTA method
+        self.min_freq = minfreq                             # Minimum considered frequency
+        self.max_freq = maxfreq                             # Maximum considered frequency
+        self.max_freq = fs/2                                # Sanity check for Nyquist frequency
+        self.nfreqs = N/2                                   # Number of frequency points in the prior analysis (e.g. from DFT)
+        self._LTeq = np.zeros(nfilts, dtype = np.float32)   # Initialization for the absolute threshold
 
         # Type of transformation
         self.type = type
@@ -45,14 +45,14 @@ class PsychoacousticModel:
         self.W_inv = self.bark2mX()
 
         # Non-linear superposition parameters
-	#Set alpha below for suitable exponents for non-linear superposition!
-	#After Baumgarten: alpha = 0.3 for power, hence 2*0.3=0.6 for our "voltage":
-        self._alpha = 0.6
-        self._maxb = 1./self.nfilts
-        self._fa = 1./(10 ** (14.5/20.) * 10 ** (12./20.))
-        self._fb = 1./(10**(7.5/20.))
-        self._fbb = 1./(10**(26./20.))
-        self._fd = 1./self._alpha
+        #Set alpha below for suitable exponents for non-linear superposition!
+        #After Baumgarten: alpha = 0.3 for power, hence 2*0.3=0.6 for our "voltage":
+        self._alpha = 0.6                                       # Exponent alpha
+        self._maxb = 1./self.nfilts                             # Bark-band normalization
+        self._fa = 1./(10 ** (14.5/20.) * 10 ** (12./20.))      # Tone masking approximation
+        self._fb = 1./(10**(7.5/20.))                           # Upper slope of spreading function
+        self._fbb = 1./(10**(26./20.))                          # Lower slope of spreading function
+        self._fd = 1./self._alpha                               # One over alpha exponent
 
     def mX2Bark(self, type):
         """ Method to perform the transofrmation.
@@ -78,6 +78,7 @@ class PsychoacousticModel:
             W    : (ndarray)    The transformation matrix, used in PEAQ evaluation.
         """
 
+        # Acquire a local copy of the necessary variables
         nfft = self.nfft
         nfilts  = self.nfilts
         fs = self.fs
@@ -89,6 +90,7 @@ class PsychoacousticModel:
         fc, fl, fu = self.CB_filters()
 
         W = np.zeros((nfilts, nfft))
+
 
         for k in range(nfft/2+1):
             for i in range(nfilts):
@@ -184,7 +186,7 @@ class PsychoacousticModel:
                                        bandwidth and centre frequencies used in creation
                                        of the transformation matrix.
         """
-
+        # Lower frequencies look-up table
         fl = np.array([  80.000,   103.445,   127.023,   150.762,   174.694, \
                198.849,   223.257,   247.950,   272.959,   298.317, \
                324.055,   350.207,   376.805,   403.884,   431.478, \
@@ -208,6 +210,7 @@ class PsychoacousticModel:
              13061.229, 13536.710, 14029.458, 14540.103, 15069.295, \
              15617.710, 16186.049, 16775.035, 17385.420 ])
 
+        # Centre frequencies look-up table
         fc = np.array([  91.708,   115.216,   138.870,   162.702,   186.742, \
                211.019,   235.566,   260.413,   285.593,   311.136, \
                337.077,   363.448,   390.282,   417.614,   445.479, \
@@ -231,6 +234,7 @@ class PsychoacousticModel:
              13294.850, 13780.887, 14282.503, 14802.338, 15341.057, \
              15899.345, 16477.914, 17077.504, 17690.045 ])
 
+        # Upper frequencies look-up table
         fu = np.array([ 103.445,   127.023,   150.762,   174.694,   198.849, \
                223.257,   247.950,   272.959,   298.317,   324.055, \
                350.207,   376.805,   403.884,   431.478,   459.622, \
@@ -285,27 +289,32 @@ class PsychoacousticModel:
             in Proceedings of the Matlab DSP Conference, pp 96-99, Espoo, Finland 1999.
         """
         # Lookup tables for correction
+        # Frequency table 1
         f1 = np.array([20, 25, 30, 35, 40, 45, 50, 55, 60, 70, 80, 90, 100, \
         125, 150, 177, 200, 250, 300, 350, 400, 450, 500, 550, \
         600, 700, 800, 900, 1000, 1500, 2000, 2500, 2828, 3000, \
         3500, 4000, 4500, 5000, 5500, 6000, 7000, 8000, 9000, 10000, \
         12748, 15000])
 
+        # ELC correction in dBs
         ELC = np.array([ 31.8, 26.0, 21.7, 18.8, 17.2, 15.4, 14.0, 12.6, 11.6, 10.6, \
             9.2, 8.2, 7.7, 6.7, 5.3, 4.6, 3.9, 2.9, 2.7, 2.3, \
             2.2, 2.3, 2.5, 2.7, 2.9, 3.4, 3.9, 3.9, 3.9, 2.7, \
             0.9, -1.3, -2.5, -3.2, -4.4, -4.1, -2.5, -0.5, 2.0, 5.0, \
             10.2, 15.0, 17.0, 15.5, 11.0, 22.0])
 
+        # MAF correction in dBs
         MAF = np.array([ 73.4, 65.2, 57.9, 52.7, 48.0, 45.0, 41.9, 39.3, 36.8, 33.0, \
             29.7, 27.1, 25.0, 22.0, 18.2, 16.0, 14.0, 11.4, 9.2, 8.0, \
              6.9,  6.2,  5.7,  5.1,  5.0,  5.0,  4.4,  4.3, 3.9, 2.7, \
              0.9, -1.3, -2.5, -3.2, -4.4, -4.1, -2.5, -0.5, 2.0, 5.0, \
             10.2, 15.0, 17.0, 15.5, 11.0, 22.0])
 
+        # Frequency table 2 for MAP
         f2  = np.array([  125,  250,  500, 1000, 1500, 2000, 3000,  \
             4000, 6000, 8000, 10000, 12000, 14000, 16000])
 
+        # MAP correction in dBs
         MAP = np.array([ 30.0, 19.0, 12.0,  9.0, 11.0, 16.0, 16.0, \
             14.0, 14.0,  9.9, 24.7, 32.7, 44.1, 63.7])
 
@@ -323,6 +332,7 @@ class PsychoacousticModel:
             freqTable = f1
             CorrectionTable = ELC
 
+        # Filter desing through spline interpolation
         freqN = np.arange(0, firOrd) * fs/2. / (firOrd-1)
         spline = uspline(freqTable, CorrectionTable)
         crc = spline(freqN)
@@ -344,8 +354,8 @@ class PsychoacousticModel:
             LTq            : (ndarray)    1D Array containing the transfer function, without the DC sub-band.
         """
         # Parameters
-        firOrd = self.nfft
-        Cr, fr, Crdb = self.OutMidCorrection(correctionType, firOrd, self.fs)
+        firOrd = self.nfft                                                          # FIR order
+        Cr, fr, Crdb = self.OutMidCorrection(correctionType, firOrd, self.fs)       # Acquire frequency/magnitude tables
         Cr[self.nfft - 1] = 0.
 
         # FIR Design
