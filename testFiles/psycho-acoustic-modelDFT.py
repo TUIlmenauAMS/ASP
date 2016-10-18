@@ -17,6 +17,7 @@ import pyaudio
 import wave
 import time
 import pygame
+import matplotlib.pyplot as plt
 
 class PsychoacousticModel:
     """ Class that performs a very basic psychoacoustic model.
@@ -157,19 +158,26 @@ class PsychoacousticModel:
         return W_inv
 
     def hz2bark(self, f):
-        """ Method to compute Bark from Hz.
+        """ Method to compute Bark from Hz. Based on :
+        https://github.com/stephencwelch/Perceptual-Coding-In-Python
         Args     :
             f    : (ndarray)    Array containing frequencies in Hz.
         Returns  :
             Brk  : (ndarray)    Array containing Bark scaled values.
         """
 
-        Brk = 6. * np.arcsinh(f/600.)
+        #Brk = 6. * np.arcsinh(f/600.)                                                 # From RASTA, Dan Ellis method (for speech quallity)
+        Brk = 13. * np.arctan(0.76*f/1000.) + 3.5 * np.arctan(f / (1000 * 7.5)) ** 2.  # From WS16_17, Psychoacoustic slides (no 5)
+
+        plt.plot(Brk)
+        plt.plot(BrkB)
+        plt.show()
 
         return Brk
 
     def bark2hz(self, Brk):
-        """ Method to compute Hz from Bark scale.
+        """ Method to compute Hz from Bark scale. Based on :
+        https://github.com/stephencwelch/Perceptual-Coding-In-Python
         Args     :
             Brk  : (ndarray)    Array containing Bark scaled values.
         Returns  :
@@ -181,6 +189,7 @@ class PsychoacousticModel:
 
     def CB_filters(self):
         """ Method to acquire critical band filters for creation of the PEAQ FFT model.
+        Based on : https://github.com/stephencwelch/Perceptual-Coding-In-Python
         Returns         :
             fc, fl, fu  : (ndarray)    Arrays containing the values in Hz for the
                                        bandwidth and centre frequencies used in creation
