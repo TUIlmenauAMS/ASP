@@ -783,8 +783,8 @@ class PsychoacousticModel:
         Returns  :
             Brk  : (ndarray)    Array containing Bark scaled values.
         """
-
-        Brk = 6. * np.arcsinh(f/600.)
+        #Brk = 6. * np.arcsinh(f/600.) # Method from RASTA model
+        Brk = 13. * np.arctan(0.76*f/1000.) + 3.5 * np.arctan(f / (1000 * 7.5)) ** 2.
 
         return Brk
 
