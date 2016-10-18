@@ -17,7 +17,7 @@ import pyaudio
 import wave
 import time
 import pygame
-import matplotlib.pyplot as plt
+
 
 class PsychoacousticModel:
     """ Class that performs a very basic psychoacoustic model.
@@ -166,12 +166,9 @@ class PsychoacousticModel:
             Brk  : (ndarray)    Array containing Bark scaled values.
         """
 
-        #Brk = 6. * np.arcsinh(f/600.)                                                 # From RASTA, Dan Ellis method (for speech quallity)
-        Brk = 13. * np.arctan(0.76*f/1000.) + 3.5 * np.arctan(f / (1000 * 7.5)) ** 2.  # From WS16_17, Psychoacoustic slides (no 5)
-
-        plt.plot(Brk)
-        plt.plot(BrkB)
-        plt.show()
+        Brk = 6. * np.arcsinh(f/600.)                                                  # From RASTA, Dan Ellis method (for speech quallity)
+                                                                                       # An inverse of that can be computed.
+        #Brk = 13. * np.arctan(0.76*f/1000.) + 3.5 * np.arctan(f / (1000 * 7.5)) ** 2.  # From WS16_17, Psychoacoustic slides (no 5)
 
         return Brk
 
