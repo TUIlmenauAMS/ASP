@@ -440,7 +440,7 @@ myFileName = 'mixed.wav'
 try :
     x, fs = IO.AudioIO.wavRead(myFileName, mono = True)
 except IOError :
-    x, fs = IO.AudioIO.wavRead(os.path.join('testFiles',myFileName), mono = True)
+    x, fs = IO.AudioIO.wavRead(os.path.join(current_dir,myFileName), mono = True)
 
 x *= 1.0
 # Cosine testq
