@@ -48,7 +48,7 @@ class PsychoacousticModel:
         # Non-linear superposition parameters
         #Set alpha below for suitable exponents for non-linear superposition!
         #After Baumgarten: alpha = 0.3 for power, hence 2*0.3=0.6 for our "voltage":
-        self._alpha = 0.6                                       # Exponent alpha
+        self._alpha = 0.95                                      # Exponent alpha
         self._maxb = 1./self.nfilts                             # Bark-band normalization
         self._fa = 1./(10 ** (14.5/20.) * 10 ** (12./20.))      # Tone masking approximation
         self._fb = 1./(10**(7.5/20.))                           # Upper slope of spreading function
@@ -127,16 +127,14 @@ class PsychoacousticModel:
         binbarks = self.hz2bark(np.linspace(0,(nfft/2),(nfft/2)+1)*fs/nfft)
 
         for i in xrange(nfilts):
-          f_bark_mid = min_bark + (i)*step_barks
+            f_bark_mid = min_bark + (i)*step_barks
 
-          # Compute the absolute threshold
-          self._LTeq[i] = 3.64 * (self.bark2hz(f_bark_mid + 1) / 1000.) ** -0.8 - \
-          6.5*np.exp( -0.6 * (self.bark2hz(f_bark_mid + 1) / 1000. - 3.3) ** 2.) + 1e-3*((self.bark2hz(f_bark_mid + 1) / 1000.) ** 4.)
+            # Compute the absolute threshold
+            self._LTeq[i] = 3.64 * (self.bark2hz(f_bark_mid + 1) / 1000.) ** -0.8 - \
+            6.5*np.exp( -0.6 * (self.bark2hz(f_bark_mid + 1) / 1000. - 3.3) ** 2.) + 1e-3*((self.bark2hz(f_bark_mid + 1) / 1000.) ** 4.)
 
-          # Linear slopes in log-space (i.e. dB) intersect to trapezoidal window
-          lof = np.add(binbarks, (-1*f_bark_mid - 0.5))
-          hif = np.add(binbarks, (-1*f_bark_mid + 0.5))
-          W[i,0:(nfft/2)+1] = 10**(np.minimum(0, np.minimum(np.divide(hif,width), np.multiply(lof,-2.5/width))))
+            # Linear slopes in log-space (i.e. dB) intersect to trapezoidal window
+            W[i,0:(nfft/2)+1] = (np.round(binbarks/step_barks)== i)
 
         return W
 
@@ -146,14 +144,7 @@ class PsychoacousticModel:
             W    : (ndarray)    The inverse transformation matrix.
         """
         # Fix up the weight matrix by transposing and "normalizing"
-        W_short = self.W[:,0:self.nfreqs + 1]
-        WW = np.dot(W_short.T,W_short)
-
-        WW_mean_diag = np.maximum(np.mean(np.diag(WW)), sum(WW,1))
-        WW_mean_diag = np.reshape(WW_mean_diag,(WW_mean_diag.shape[0],1))
-        W_inv_denom = np.tile(WW_mean_diag,(1,self.nfilts))
-
-        W_inv = np.divide(W_short.T, W_inv_denom)
+        W_inv= np.dot(np.diag((1.0/np.sum(self.W,1))**0.5), self.W[:,0:self.nfreqs + 1]).T
 
         return W_inv
 
@@ -436,11 +427,11 @@ gain = 0.
 
 # Reading
 # File Reading
-myFileName = 'mixed.wav'
+myFileName = 'monster.mp3'
 try :
-    x, fs = IO.AudioIO.wavRead(myFileName, mono = True)
+    x, fs = IO.AudioIO.audioRead(myFileName, mono = True)
 except IOError :
-    x, fs = IO.AudioIO.wavRead(os.path.join(current_dir,myFileName), mono = True)
+    x, fs = IO.AudioIO.audioRead(os.path.join(current_dir,myFileName), mono = True)
 
 x *= 1.0
 # Cosine testq
