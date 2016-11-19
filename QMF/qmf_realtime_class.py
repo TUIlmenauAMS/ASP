@@ -428,10 +428,10 @@ blockmemory_sin = np.zeros((overlap, N), dtype = np.float32)
 blockmemorysyn_sin = np.zeros((overlap, N), dtype = np.float32)
 
 # Analysis/Synthesis Matrices
-FsCos = hs2Fs3d_fast(qmfwin * np.sum(qmfwin), N)        # Undo L1-normalization
-FsSin = hs2Fs3d_sinmod_fast(qmfwin * np.sum(qmfwin), N) # Undo L1-normalization
-FaCos = ha2Fa3d_fast(qmfwin/np.sum(qmfwin), N)          # L1-normalization
-FaSin = ha2Fa3d_sinmod_fast(qmfwin/np.sum(qmfwin), N)   # L1-normalization
+FsCos = hs2Fs3d_fast(qmfwin, N)
+FsSin = hs2Fs3d_sinmod_fast(qmfwin, N)
+FaCos = ha2Fa3d_fast(qmfwin, N)       
+FaSin = ha2Fa3d_sinmod_fast(qmfwin, N)
 
 class PQMFAnalysis():
     """
