@@ -9,11 +9,18 @@ __author__ = 'G. Schuller, S.I. Mimilakis'
 __copyright__ = "Fraunhofer IDMT, TU Ilmenau, MacSeNet"
 
 import numpy as np
+
+try :
+    import numpy.core._dotblas
+    print('Fast BLAS found!')
+except ImportError:
+    print('Slow BLAS will be used...')
+
 import scipy.fftpack as spfft
+from scipy import io, sparse, signal
 import cPickle as pickle
 import IOMethods as IO
-from scipy import sparse
-from scipy import io
+
 
 # Utilities for Analysis
 def ha2Pa3d(ha, N = 1024):
@@ -334,7 +341,7 @@ def DCT4(samples):
 #The DST4 transform:
 def DST4(samples):
     """
-        Method to create DST4 transformation using DST4
+        Method to create DST4 transformation using DST3
 
         Arguments   :
             samples : (1D Array) Input samples to be transformed
@@ -430,7 +437,7 @@ blockmemorysyn_sin = np.zeros((overlap, N), dtype = np.float32)
 # Analysis/Synthesis Matrices
 FsCos = hs2Fs3d_fast(qmfwin, N)
 FsSin = hs2Fs3d_sinmod_fast(qmfwin, N)
-FaCos = ha2Fa3d_fast(qmfwin, N)       
+FaCos = ha2Fa3d_fast(qmfwin, N)
 FaSin = ha2Fa3d_sinmod_fast(qmfwin, N)
 
 class PQMFAnalysis():
