@@ -5,7 +5,7 @@ __copyright__ = 'MacSeNet'
 import math
 import numpy as np
 from scipy.fftpack import fft, ifft, dct, dst
-from scipy.signal import firwin2, freqz, cosine, hanning, fftconvolve
+from scipy.signal import firwin2, freqz, cosine, hanning, hamming, fftconvolve
 from scipy.interpolate import InterpolatedUnivariateSpline as uspline
 
 eps = np.finfo(np.float32).tiny
@@ -143,17 +143,58 @@ class TimeFrequencyDecomposition:
         return xmX, xpX
 
     @staticmethod
-    def iSTFT(xmX, xpX, wsz, hop) :
+    def GLA(wsz, hop):
+        """ LSEE-MSTFT algorithm for computing the synthesis window used in
+        inverse STFT method below.
+        Args:
+            wsz :   (int)    Synthesis Window size
+            hop :   (int)    Hop size
+        Returns :
+            symw:   (array) Synthesised time-domain real signal.
+
+        References :
+            [1] Daniel W. Griffin and Jae S. Lim, ``Signal estimation from modified short-time
+            Fourier transform,'' IEEE Transactions on Acoustics, Speech and Signal Processing,
+            vol. 32, no. 2, pp. 236-243, Apr 1984.
+        """
+        synw = hamming(wsz)/np.sum(hamming(wsz))
+        synwProd = synw ** 2.
+        synwProd.shape = (wsz, 1)
+        redundancy = wsz/hop
+        env = np.zeros((wsz, 1))
+        for k in xrange(-redundancy, redundancy + 1):
+            envInd = (hop*k)
+            winInd = np.arange(1, wsz+1)
+            envInd += winInd
+
+            valid = np.where((envInd > 0) & (envInd <= wsz))
+            envInd = envInd[valid] - 1
+            winInd = winInd[valid] - 1
+            env[envInd] += synwProd[winInd]
+
+        synw = synw/env[:, 0]
+        return synw
+
+    @staticmethod
+    def iSTFT(xmX, xpX, wsz, hop, smt = False) :
         """ Short Time Fourier Transform synthesis of given magnitude and phase spectra,
         via the above iDFT method.
         Args:
             xmX :   (2D ndarray)  Magnitude Spectrum
             xpX :   (2D ndarray)  Phase Spectrum
-            wsz :   (int)    Synthesis Window size
-            hop :   (int)    Hop size
+            wsz :   (int)         Synthesis Window size
+            hop :   (int)         Hop size
+            smt :   (bool)        Whether or not use a post-processing step in time domain
+                                  signal recovery, using synthesis windows.
         Returns :
-            y   :   (array) Synthesised time-domain real signal.
+            y   :   (array)       Synthesised time-domain real signal.
         """
+
+        # GL-Algorithm or simple OLA
+        if smt == True:
+            rs = TimeFrequencyDecomposition.GLA(wsz, hop)
+        else :
+            rs = hop
 
         # Acquire half window sizes
         hw1 = int(math.floor((wsz+1)/2))
@@ -174,7 +215,7 @@ class TimeFrequencyDecomposition:
             ybuffer = TimeFrequencyDecomposition.iDFT(xmX[indx, :], xpX[indx, :], wsz)
 
             # Overlap and Add
-            y[pin:pin+wsz] += ybuffer*hop
+            y[pin:pin+wsz] += ybuffer*rs
 
             # Advance pointer
             pin += hop
