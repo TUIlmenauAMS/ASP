@@ -273,14 +273,15 @@ class TimeFrequencyDecomposition:
         return w
 
     @staticmethod
-    def coreModulation(win, N):
+    def coreModulation(win, N, type = 'MDCT'):
         """
             Method to produce Analysis and Synthesis matrices for the offline
-            complex PQMF class.
+            PQMF class, using polyphase matrices.
 
             Arguments  :
                 win    :  (1D Array) Windowing function
                 N      :  (int) Number of subbands
+                type   :  (str) Selection between 'MDCT' or 'PQMF' basis functions
 
             Returns  :
                 Cos   :   (2D Array) Cosine Modulated Polyphase Matrix
@@ -295,11 +296,23 @@ class TimeFrequencyDecomposition:
         Cos = np.zeros((N,lfb), dtype = np.float32)
         Sin = np.zeros((N,lfb), dtype = np.float32)
 
-        # Generate Matrices
-        for k in xrange(0, lfb):
-            for n in xrange(0, N):
-                Cos[n, k] = win[k] * np.cos(np.pi/N * (n + 0.5) * (k + 0.5 + N/2)) * np.sqrt(2. / N)
-                Sin[n, k] = win[k] * np.sin(np.pi/N * (n + 0.5) * (k + 0.5 + N/2)) * np.sqrt(2. / N)
+        # Generate Matrices        
+        if type == 'MDCT' :
+	        print('MDCT')
+	        for k in xrange(0, N):
+	            for n in xrange(0, lfb):
+	                Cos[k, n] = win[n] * np.cos(np.pi/N * (k + 0.5) * (n + 0.5 + N/2)) * np.sqrt(2. / N)
+	                Sin[k, n] = win[n] * np.sin(np.pi/N * (k + 0.5) * (n + 0.5 + N/2)) * np.sqrt(2. / N)
+
+        elif type == 'PQMF-polyphase' :
+	        print('PQMF-polyphase')
+	        for k in xrange(0, N):
+	            for n in xrange(0, lfb):
+	                Cos[k, n] = win[n] * np.cos(np.pi/N * (k + 0.5) * (n + 0.5)) * np.sqrt(2. / N)
+	                Sin[k, n] = win[n] * np.sin(np.pi/N * (k + 0.5) * (n + 0.5)) * np.sqrt(2. / N)
+        
+        else :
+            assert('Unknown type')
 
         return Cos, Sin
 
