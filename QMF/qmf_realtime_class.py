@@ -570,6 +570,37 @@ class PQMFAnalysis():
         return y
 
     @staticmethod
+    def compute_pseudo_magnitude(ms):
+        """
+            Method to compute the regularized magnitude spectrum for real-valued
+            (cosine modulated) signal representations.
+
+            References :
+                [1] L. Daudet and M. Sandler, "MDCT analysis of sinusoids: exact
+                results and applications to coding artifacts reduction,"
+                in IEEE Transactions on Speech and Audio Processing, vol. 12,
+                no. 3, pp. 302-312, May 2004.
+
+
+            Arguments   :
+                ms      : (2D Array)  Input Time-Frequency representation (timeframes, sub-bands).
+
+            Returns     :
+                mX      : (2D Array)  Regularized Magnitude Coefficients (timeframes, sub-bands).
+
+            Authors     : S.I. Mimilakis ('mis')
+        """
+        mX = np.zeros((ms.shape[0], ms.shape[1]), dtype=np.float32)
+
+        for indx in xrange(ms.shape[0]):
+            cfr = np.zeros((ms.shape[1],), dtype=np.float32)
+            for csamples in xrange(1, len(cfr) - 1):
+                cfr[csamples] = ms[indx, csamples] ** 2. + (ms[indx, csamples - 1] - ms[indx, csamples + 1]) ** 2.
+            mX[indx, :] = cfr[:]
+
+        return mX
+
+    @staticmethod
     def analyseNStore(filePath, N = 1024, saveStr = 'Analysis_QMF.p'):
         """
             PQMF analysis and storing into pickle.
