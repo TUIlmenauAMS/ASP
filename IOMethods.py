@@ -50,6 +50,7 @@ class AudioIO:
 	# Absolute path needed here
 	pathToffmpeg = '/home/mis/Documents/Python/Projects/SourceSeparation/MiscFiles'
 
+
 	def __init__(self):
 		pass
 
@@ -81,8 +82,10 @@ class AudioIO:
 					 + ' -i ' + fileName + ' ', -2],
 				'wma':[os.path.join(AudioIO.pathToffmpeg, 'ffmpeg_linux')
 					 + ' -i ' + fileName + ' ', -3],
-				'aiff': [os.path.join(AudioIO.pathToffmpeg, 'ffmpeg_linux')
-					 + ' -i ' + fileName + ' ', -4]
+				'aiff':[os.path.join(AudioIO.pathToffmpeg, 'ffmpeg_linux')
+					 + ' -i ' + fileName + ' ', -4],
+				'wav':[os.path.join(AudioIO.pathToffmpeg, 'ffmpeg_linux')
+					 + ' -i ' + fileName + ' ', -3]
 						}
 
 		# MacOSX
@@ -95,7 +98,9 @@ class AudioIO:
 				'wma':[os.path.join(AudioIO.pathToffmpeg, 'ffmpeg_osx')
 					 + ' -i ' + fileName + ' ', -3],
 				'aiff': [os.path.join(AudioIO.pathToffmpeg, 'ffmpeg_osx')
-					 + ' -i ' + fileName + ' ', -4]
+					 + ' -i ' + fileName + ' ', -4],
+				'wav': [os.path.join(AudioIO.pathToffmpeg, 'ffmpeg_linux')
+						+ ' -i ' + fileName + ' ', -3]
 						}
 		# Add windows support!
 		else :
@@ -128,6 +133,17 @@ class AudioIO:
 			print(fileName[convDict['aiff'][1]:])
 			modfileName = os.path.join(os.path.abspath(fileName[:convDict['aiff'][1]] + 'wav'))
 			subprocess.call(convDict['aiff'][0]+modfileName, shell = True,  stdout=AudioIO.FNULL, stderr=subprocess.STDOUT)
+			samples, sampleRate = AudioIO.wavRead(modfileName, mono)
+			os.remove(modfileName)
+
+		elif fileName[convDict['wav'][1]:] == 'wav':
+			"""
+				General purpose reading of wav files that do not contain the RIFF header.
+			"""
+			print('x-wav')
+			modfileName = os.path.join(os.path.abspath(fileName[:-4] + '_temp.wav'))
+			subprocess.call(convDict['wav'][0] + modfileName, shell=True, stdout=AudioIO.FNULL,
+							stderr=subprocess.STDOUT)
 			samples, sampleRate = AudioIO.wavRead(modfileName, mono)
 			os.remove(modfileName)
 
