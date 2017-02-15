@@ -10,7 +10,7 @@ from scipy.interpolate import InterpolatedUnivariateSpline as uspline
 
 try :
     from QMF import qmf_realtime_class as qrf
-except IOError :
+except ImportError :
     print('PQMF class was not found. ')
 
 eps = np.finfo(np.float32).tiny
