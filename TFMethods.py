@@ -8,12 +8,19 @@ from scipy.fftpack import fft, ifft, dct, dst
 from scipy.signal import firwin2, freqz, cosine, hanning, hamming, fftconvolve
 from scipy.interpolate import InterpolatedUnivariateSpline as uspline
 
+try :
+    from QMF import qmf_realtime_class as qrf
+except IOError :
+    print('PQMF class was not found. ')
+
 eps = np.finfo(np.float32).tiny
 
 class TimeFrequencyDecomposition:
     """ A Class that performs time-frequency decompositions by means of a
         Discrete Fourier Transform, using Fast Fourier Transform algorithm
-        by SciPy, MDCT-type IV and Fractional Fast Fourier Transform.
+        by SciPy, MDCT with modified type IV bases, PQMF,
+        and Fractional Fast Fourier Transform.
+
     """
     @staticmethod
     def DFT(x, w, N):
@@ -273,6 +280,58 @@ class TimeFrequencyDecomposition:
         return w
 
     @staticmethod
+    def pqmf_analysis(x):
+        """
+            Method to analyse an input time-domain signal using PQMF.
+            See QMF class for more information.
+
+            Arguments   :
+                x       : (1D Array) Input signal
+
+            Returns     :
+                ms      : (2D Array) Analysed time-frequency representation by means of PQMF analysis.
+        """
+        # Parameters
+        N = 1024
+        nTimeSlots = len(x) / N
+
+
+        # Initialization
+        ms = np.zeros((nTimeSlots, N), dtype=np.float32)
+
+        # Perform Analysis
+        for m in xrange(nTimeSlots):
+            ms[m, :] = qrf.PQMFAnalysis.analysisqmf_realtime(x[m*N:(m+1)*N], N)
+
+        return ms
+
+    @staticmethod
+    def pqmf_synthesis(ms):
+        """
+            Method to synthesise a time-domain signal using PQMF.
+            See QMF class for more information.
+
+            Arguments   :
+                ms      : (2D Array) Analysed time-frequency representation by means of PQMF analysis.
+
+            Returns     :
+                xrec    : (1D Array) Reconstructed signal
+        """
+        # Parameters
+        N = 1024
+        nTimeSlots = ms.shape[0]
+
+
+        # Initialization
+        xrec = np.zeros((nTimeSlots * N), dtype=np.float32)
+
+        # Perform Analysis
+        for m in xrange(nTimeSlots):
+            xrec[m * N: (m + 1) * N] = qrf.PQMFSynthesis.synthesisqmf_realtime(ms[m, :], N)
+
+        return xrec
+
+    @staticmethod
     def coreModulation(win, N, type = 'MDCT'):
         """
             Method to produce Analysis and Synthesis matrices for the offline
@@ -287,8 +346,6 @@ class TimeFrequencyDecomposition:
                 Cos   :   (2D Array) Cosine Modulated Polyphase Matrix
                 Sin   :   (2D Array) Sine Modulated Polyphase Matrix
 
-
-            Usage  : Cos, Sin = TimeFrequencyDecomposition.coreModulation(qmfwin, N)
         """
 
         lfb = len(win)
@@ -327,14 +384,12 @@ class TimeFrequencyDecomposition:
                 N       : (int)      Number of sub-bands
 
             Returns     :
-                y       : (2D Array) Complex output of QMF analysis matrix (Cosine)
+                y       : (2D Array) Complex valued output of the analysis
 
-            Usage       : y = TimeFrequencyDecomposition.complex_analysis(x, N)
 
         """
         # Parameters and windowing function design
         win = cosine(2*N, True)
-        win /= np.sum(win)
         lfb = len(win)
         nTimeSlots = len(x)/N - 2
 
@@ -365,13 +420,9 @@ class TimeFrequencyDecomposition:
 
             Returns     :
                 xrec    : (1D Array) Time domain reconstruction
-
-            Usage       : xrec = TimeFrequencyDecomposition.complex_synthesis(y, N)
-
         """
         # Parameters and windowing function design
         win = cosine(2*N, True)
-        win *= np.sum(win)
         lfb = len(win)
         nTimeSlots = y.shape[0]
         SignalLength = nTimeSlots * N + 2 * N
@@ -396,21 +447,18 @@ class TimeFrequencyDecomposition:
     def real_analysis(x, N = 1024):
         """
             Method to compute the subband samples from time domain signal x.
-            A complex output matrix will be computed using DCT and DST.
+            A real valued output matrix will be computed using DCT.
 
             Arguments   :
                 x       : (1D Array) Input signal
                 N       : (int)      Number of sub-bands
 
             Returns     :
-                y       : (2D Array) Complex output of QMF analysis matrix (Cosine)
-
-            Usage       : y = TimeFrequencyDecomposition.complex_analysis(x, N)
+                y       : (2D Array) Real valued output of the analysis
 
         """
         # Parameters and windowing function design
         win = cosine(2*N, True)
-        win /= np.sum(win)
         lfb = len(win)
         nTimeSlots = len(x)/N - 2
 
@@ -420,6 +468,7 @@ class TimeFrequencyDecomposition:
 
         # Analysis Matrices
         Cos, _ = TimeFrequencyDecomposition.coreModulation(win, N)
+
 
         # Perform Complex Analysis
         for m in xrange(0, nTimeSlots):
@@ -431,7 +480,7 @@ class TimeFrequencyDecomposition:
     def real_synthesis(y, N = 1024):
         """
             Method to compute the resynthesis of the MDCT.
-            A complex input matrix is asummed as input, derived from DCT typeIV.
+            A real valued input matrix is asummed as input, derived from DCT typeIV.
 
             Arguments   :
                 y       : (2D Array) Real Representation
@@ -439,18 +488,16 @@ class TimeFrequencyDecomposition:
             Returns     :
                 xrec    : (1D Array) Time domain reconstruction
 
-            Usage       : xrec = TimeFrequencyDecomposition.complex_synthesis(y, N)
-
         """
         # Parameters and windowing function design
         win = cosine(2*N, True)
-        win *= np.sum(win)
         lfb = len(win)
         nTimeSlots = y.shape[0]
         SignalLength = nTimeSlots * N + 2 * N
 
         # Synthesis matrices
         Cos, _ = TimeFrequencyDecomposition.coreModulation(win, N)
+
 
         # Initialization
         zcos = np.zeros((1, SignalLength), dtype = np.float32)
@@ -611,7 +658,7 @@ class TimeFrequencyDecomposition:
 
     @staticmethod
     def istfrft(xmX, xpX, hop, a):
-        """ Short Time Fractional Fourier Transform synthesis of given magnitude and phase spectra.
+        """ Inverse Short Time Fractional Fourier Transform synthesis of given magnitude and phase spectra.
         Args:
             xmX :   (2D ndarray)  Magnitude Spectrum
             xpX :   (2D ndarray)  Phase Spectrum
@@ -1221,9 +1268,10 @@ if __name__ == "__main__":
     np.random.seed(218)
     # Test
     #kSin = np.cos(np.arange(88200) * (1000.0 * (3.1415926 * 2.0) / 44100)) * 0.5
-    mix, fs = IO.AudioIO.audioRead('testFiles/cmente.mp3', mono = True)
-    mix = mix[44100*25:44100*25 + 882000] * 0.25
-    noise = np.random.uniform(-30., 30., len(mix))
+    #mix, fs = IO.AudioIO.audioRead('testFiles/cmente.mp3', mono = True)
+    mix, fs = IO.AudioIO.wavRead('/user/HS203/m08926/Documents/DSD100/Mixtures/Test/037 - Speak Softly - Broken Man/mixture_seg.wav', mono = True)
+    #mix = mix[44100*25:44100*25 + 882000] * 0.25
+    noise = np.random.uniform(-49., 49., len(mix))
 
     # STFT/iSTFT Test
     w = np.hanning(1025)
@@ -1234,7 +1282,6 @@ if __name__ == "__main__":
     #yrek = TimeFrequencyDecomposition.complex_synthesis(yA, 1024)
 
     #y = np.real(y)
-
     # Usage of psychoacoustic model
     # Initialize the model
     pm = PsychoacousticModel(N = 2048, fs = 44100, nfilts = 64)
@@ -1245,10 +1292,8 @@ if __name__ == "__main__":
     #mt_y = pm.maskingThreshold(np.abs(y))
 
     sound = TimeFrequencyDecomposition.iSTFT(magX, phsX, 2048, 512)
-    #sound2 = TimeFrequencyDecomposition.iSTFT(magN * (mt), phsN, 2048, 512)
+    sound2 = TimeFrequencyDecomposition.iSTFT(mt, phsN, 2048, 512)
 
     # Test the NMR Function
-    #NMR = pm.NMREval(sound, sound+sound2)
-    #print(NMR)
-
-    import QMF.qmf_realtime_class as qrf
+    NMR = pm.NMREval(sound, sound+sound2)
+    print(NMR)
