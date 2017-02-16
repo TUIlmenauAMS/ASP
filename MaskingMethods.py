@@ -22,6 +22,10 @@ class FrequencyMasking:
 		self._Out = []
 		self._alpha = alpha
 		self._method = method
+		self._iterations = 100
+		self._lr = 6e-7
+		self._inlr = 1e-7
+		self._closs = 100.
 
 	def __call__(self, reverse = False):
 
@@ -200,14 +204,14 @@ class FrequencyMasking:
 
 	def alphaHarmonizableProcess(self):
 		"""
-			Computation of alpha harmonizable Wiener like mask, as appears in :
+			Computation of Wiener like mask using fractional power spectrograms. As appears in :
 			A. Liutkus, R. Badeau, "Generalized Wiener filtering with fractional power spectrograms",
     		40th International Conference on Acoustics, Speech and Signal Processing (ICASSP),
     		Apr 2015, Brisbane, Australia.
 		Args:
 			sTarget:   (2D ndarray) Magnitude Spectrogram of the target component
 		    nResidual: (2D ndarray) Magnitude Spectrogram of the residual component or a list 
-									of 2D ndarrays which will be summed
+									of 2D ndarrays which will be added together
 		Returns:
 			mask:      (2D ndarray) Array that contains time frequency gain values
 
@@ -245,6 +249,57 @@ class FrequencyMasking:
 		Theta = (self._pTarget - self._pY)
 		self._mask = 2./ (1. + np.exp(-np.multiply(np.divide(self._sTarget, self._eps + self._nResidual), np.cos(Theta)))) - 1.
 
+	def optAlpha(self):
+		"""
+			A simple gradiend descent method, to find optimum power-spectral density exponents (alpha)
+			for generalized wiener filtering.
+		Args:
+			sTarget:   (2D ndarray) Magnitude Spectrogram of the target component
+			nResidual: (2D ndarray) Magnitude Spectrogram of the residual component or a list
+									of 2D ndarrays which will be added together
+		Returns:
+			mask:      (2D ndarray) Array that contains time frequency gain values
+
+		"""
+		# Put every source spectrogram into an array, given an input list.
+		slist = list(self._nResidual)
+		slist.insert(0, self._sTarget)
+		numElements = len(slist)
+		slist = np.asarray(slist)
+
+		alpha = np.array([1.5] * (numElements))	# Initialize an array of alpha values to be found.
+		dloss = np.array([0.] * (numElements))  # Initialize an array of loss functions to be used.
+
+		for source in xrange(numElements):
+			print('Number of sources processed: ' + str(source))
+			for iter in xrange(self._iterations):
+				Xhat = slist[source, :, :] ** alpha[source] + np.sum(slist[np.arange(numElements)!=source], axis = 0)
+				closs = self._dIS(Xhat)
+				isloss = self._IS(Xhat)
+
+				if iter > 0 :
+					if (dloss[source] - isloss) > 0:
+						alpha[source] -= self._lr * closs
+					elif (dloss[source] - isloss) <= 0:
+						alpha[source] += self._lr * closs
+						if isloss < 0.09:
+							break
+				else :
+					alpha[source] -= self._inlr * closs
+
+				# Clamp down values
+				alpha[:] = np.clip(alpha[:], a_min = 0.5, a_max = 2.)
+				# Store current loss
+				dloss[source] = isloss
+
+			print('Loss: ' + str(isloss) + ' with characteristic exponent: ' + str(alpha[source]))
+			# Update source list
+			slist[source, :, :] = slist[source, :, :] ** alpha[source]
+
+		print(alpha)
+		self._mask = np.divide((slist[0, :, :] + self._eps), (np.sum(slist, axis = 0) + self._eps))
+		self._closs = isloss
+
 	def applyMask(self):
 		""" Compute the filtered output spectrogram.
 		Args:
@@ -270,6 +325,55 @@ class FrequencyMasking:
 			raise ValueError('Cannot compute that using such masking method.')
 		else :
 			self._Out = np.multiply( (1. - self._mask), self._mX)
+
+	def _IS(self, Xhat):
+		""" Compute the Itakura-Saito distance between the observed magnitude spectrum
+			and the estimated one.
+        Args:
+            mX    :   	(2D ndarray) Input Magnitude Spectrogram
+            Xhat  :     (2D ndarray) Estimated Magnitude Spectrogram
+        Returns:
+            dis   :     (float) Average Itakura-Saito distance
+        """
+		r1 = (np.abs(self._mX) + self._eps) / (Xhat + self._eps)
+		lg = np.log(r1)
+		return np.mean(r1 - lg - 1.)
+
+	def _dIS(self, Xhat):
+		""" Compute the first derivative of Itakura-Saito function. As appears in :
+            Cedric Fevotte and Jerome Idier, "Algorithms for nonnegative matrix factorization
+            with the beta-divergence", in CoRR, vol. abs/1010.1763, 2010.
+        Args:
+            mX    :   	(2D ndarray) Input Magnitude Spectrogram
+            Xhat  :     (2D ndarray) Estimated Magnitude Spectrogram
+        Returns:
+            dis'  :     (float) Average of first derivative of Itakura-Saito distance.
+        """
+		return np.mean(((Xhat + self._eps) ** (-2.)) * np.abs(Xhat - self._mX))
+
+	def _KL(self, Xhat):
+		""" Compute the Kullback-Leibler distance between the observed magnitude spectrum
+            and the estimated one.
+        Args:
+            mX    :   	(2D ndarray) Input Magnitude Spectrogram
+            Xhat  :     (2D ndarray) Estimated Magnitude Spectrogram
+        Returns:
+            dkl   :     (float) Average Kullback-Leibler distance
+        """
+		dkl = Xhat * np.log((Xhat + + self._eps) / (np.abs(self._mX) + self._eps))
+		return np.mean(dkl)
+
+	def _dKL(self, Xhat):
+		""" Compute the first derivative of Kullback-Leibler function. As appears in :
+			Cedric Fevotte and Jerome Idier, "Algorithms for nonnegative matrix factorization
+			with the beta-divergence", in CoRR, vol. abs/1010.1763, 2010.
+        Args:
+            mX    :   	(2D ndarray) Input Magnitude Spectrogram
+            Xhat  :     (2D ndarray) Estimated Magnitude Spectrogram
+        Returns:
+            dkl'  :     (float) Average of first derivative of Kullback-Leibler distance
+        """
+		return np.mean(((Xhat + self._eps) ** (-1.)) * (Xhat - np.abs(self._mX)))
 
 if __name__ == "__main__":
 
