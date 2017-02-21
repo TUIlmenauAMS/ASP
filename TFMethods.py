@@ -347,11 +347,12 @@ class TimeFrequencyDecomposition:
                 Sin   :   (2D Array) Sine Modulated Polyphase Matrix
 
         """
+        global Cos
 
         lfb = len(win)
         # Initialize Storing Variables
         Cos = np.zeros((N,lfb), dtype = np.float32)
-        Sin = np.zeros((N,lfb), dtype = np.float32)
+        #Sin = np.zeros((N,lfb), dtype = np.float32)
 
         # Generate Matrices        
         if type == 'MDCT' :
@@ -359,89 +360,19 @@ class TimeFrequencyDecomposition:
 	        for k in xrange(0, N):
 	            for n in xrange(0, lfb):
 	                Cos[k, n] = win[n] * np.cos(np.pi/N * (k + 0.5) * (n + 0.5 + N/2)) * np.sqrt(2. / N)
-	                Sin[k, n] = win[n] * np.sin(np.pi/N * (k + 0.5) * (n + 0.5 + N/2)) * np.sqrt(2. / N)
+	                #Sin[k, n] = win[n] * np.sin(np.pi/N * (k + 0.5) * (n + 0.5 + N/2)) * np.sqrt(2. / N)
 
         elif type == 'PQMF-polyphase' :
 	        print('PQMF-polyphase')
 	        for k in xrange(0, N):
 	            for n in xrange(0, lfb):
 	                Cos[k, n] = win[n] * np.cos(np.pi/N * (k + 0.5) * (n + 0.5)) * np.sqrt(2. / N)
-	                Sin[k, n] = win[n] * np.sin(np.pi/N * (k + 0.5) * (n + 0.5)) * np.sqrt(2. / N)
+	                #Sin[k, n] = win[n] * np.sin(np.pi/N * (k + 0.5) * (n + 0.5)) * np.sqrt(2. / N)
         
         else :
             assert('Unknown type')
 
-        return Cos, Sin
-
-    @staticmethod
-    def complex_analysis(x, N = 1024):
-        """
-            Method to compute the subband samples from time domain signal x.
-            A complex output matrix will be computed using DCT and DST.
-
-            Arguments   :
-                x       : (1D Array) Input signal
-                N       : (int)      Number of sub-bands
-
-            Returns     :
-                y       : (2D Array) Complex valued output of the analysis
-
-
-        """
-        # Parameters and windowing function design
-        win = cosine(2*N, True)
-        lfb = len(win)
-        nTimeSlots = len(x)/N - 2
-
-        # Initialization
-        ycos = np.zeros((len(x)/N, N), dtype = np.float32)
-        ysin = np.zeros((len(x)/N, N), dtype = np.float32)
-
-        # Analysis Matrices
-        Cos, Sin = TimeFrequencyDecomposition.coreModulation(win, N)
-
-        # Perform Complex Analysis
-        for m in xrange(0, nTimeSlots):
-            ycos[m, :] = np.dot(x[m * N : m * N + lfb], Cos.T)
-            ysin[m, :] = np.dot(x[m * N : m * N + lfb], Sin.T)
-
-        y = ycos + 1j *  ysin
-
-        return y
-
-    @staticmethod
-    def complex_synthesis(y, N = 1024):
-        """
-            Method to compute the resynthesis of the MDCST.
-            A complex input matrix is asummed as input, derived from DCT and DST.
-
-            Arguments   :
-                y       : (2D Array) Complex Representation
-
-            Returns     :
-                xrec    : (1D Array) Time domain reconstruction
-        """
-        # Parameters and windowing function design
-        win = cosine(2*N, True)
-        lfb = len(win)
-        nTimeSlots = y.shape[0]
-        SignalLength = nTimeSlots * N + 2 * N
-
-        # Synthesis matrices
-        Cos, Sin = TimeFrequencyDecomposition.coreModulation(win, N)
-
-        # Initialization
-        zcos = np.zeros((1, SignalLength), dtype = np.float32)
-        zsin = np.zeros((1, SignalLength), dtype = np.float32)
-
-        # Perform Complex Synthesis
-        for m in xrange(0, nTimeSlots):
-            zcos[0, m * N : m * N + lfb] += np.dot(np.real(y[m, :]).T, Cos)
-            zsin[0, m * N : m * N + lfb] += np.dot(np.imag(y[m, :]).T, Sin)
-
-        xrec = 0.5 * (zcos + zsin)
-
-        return xrec.T
+        return Cos
 
     @staticmethod
     def real_analysis(x, N = 1024):
@@ -466,48 +397,73 @@ class TimeFrequencyDecomposition:
         ycos = np.zeros((len(x)/N, N), dtype = np.float32)
         ysin = np.zeros((len(x)/N, N), dtype = np.float32)
 
-        # Analysis Matrices
-        Cos, _ = TimeFrequencyDecomposition.coreModulation(win, N)
+        # Check global variables in order to avoid
+        # computing over and over again the transformation matrices.
+        glvars = globals()
 
-
-        # Perform Complex Analysis
-        for m in xrange(0, nTimeSlots):
-            ycos[m, :] = np.dot(x[m * N : m * N + lfb], Cos.T)
+        if 'Cos' in glvars and ((glvars['Cos'].T).shape[1] == N):
+            print('... using pre-computed transformation matrices')
+            global Cos
+            # Perform Analysis
+            for m in xrange(0, nTimeSlots):
+                ycos[m, :] = np.dot(x[m * N: m * N + lfb], Cos.T)
+        else :
+            print('... computing transformation matrices')
+            # Analysis Matrix
+            Cos = TimeFrequencyDecomposition.coreModulation(win, N)
+            # Perform Analysis
+            for m in xrange(0, nTimeSlots):
+                ycos[m, :] = np.dot(x[m * N: m * N + lfb], Cos.T)
 
         return ycos
 
     @staticmethod
-    def real_synthesis(y, N = 1024):
+    def real_synthesis(y):
         """
             Method to compute the resynthesis of the MDCT.
             A real valued input matrix is asummed as input, derived from DCT typeIV.
 
             Arguments   :
-                y       : (2D Array) Real Representation
+                y       : (2D Array) Real Representation (time frames x frequency sub-bands (N))
 
             Returns     :
                 xrec    : (1D Array) Time domain reconstruction
 
         """
         # Parameters and windowing function design
+        N = y.shape[1]
         win = cosine(2*N, True)
         lfb = len(win)
         nTimeSlots = y.shape[0]
         SignalLength = nTimeSlots * N + 2 * N
 
-        # Synthesis matrices
-        Cos, _ = TimeFrequencyDecomposition.coreModulation(win, N)
+        # Check global variables in order to avoid
+        # computing over and over again the transformation matrices.
+        glvars = globals()
 
+        if 'Cos' in glvars and ((glvars['Cos'].T).shape[1] == N):
+            print('... using pre-computed transformation matrix')
+            global Cos
+            # Initialization
+            zcos = np.zeros((1, SignalLength), dtype=np.float32)
 
-        # Initialization
-        zcos = np.zeros((1, SignalLength), dtype = np.float32)
+            # Perform Synthesis
+            for m in xrange(0, nTimeSlots):
+                zcos[0, m * N: m * N + lfb] += np.dot((y[m, :]).T, Cos)
 
-        # Perform Complex Synthesis
-        for m in xrange(0, nTimeSlots):
-            zcos[0, m * N : m * N + lfb] += np.dot((y[m, :]).T, Cos)
+        else:
+            print('... computing transformation matrix')
+            # Synthesis marix
+            Cos = TimeFrequencyDecomposition.coreModulation(win, N)
 
-        xrec = zcos
-        return xrec.T
+            # Initialization
+            zcos = np.zeros((1, SignalLength), dtype=np.float32)
+
+            # Perform Synthesis
+            for m in xrange(0, nTimeSlots):
+                zcos[0, m * N: m * N + lfb] += np.dot((y[m, :]).T, Cos)
+
+        return zcos.T
 
     @staticmethod
     def frft(f, a):
