@@ -20,7 +20,6 @@ class TimeFrequencyDecomposition:
         Discrete Fourier Transform, using Fast Fourier Transform algorithm
         by SciPy, MDCT with modified type IV bases, PQMF,
         and Fractional Fast Fourier Transform.
-
     """
     @staticmethod
     def DFT(x, w, N):
@@ -126,7 +125,8 @@ class TimeFrequencyDecomposition:
         indx = 0
 
         # Normalise windowing function
-        w = w / sum(w)
+        if np.sum(w)!= 0. :
+            w = w / np.sum(w)
 
         # Initialize storing matrix
         xmX = np.zeros((len(x)/hop, N/2 + 1), dtype = np.float32)
@@ -298,7 +298,7 @@ class TimeFrequencyDecomposition:
 
         # Initialization
         ms = np.zeros((nTimeSlots, N), dtype=np.float32)
-
+        qrf.reset_rt()
         # Perform Analysis
         for m in xrange(nTimeSlots):
             ms[m, :] = qrf.PQMFAnalysis.analysisqmf_realtime(x[m*N:(m+1)*N], N)
@@ -324,7 +324,7 @@ class TimeFrequencyDecomposition:
 
         # Initialization
         xrec = np.zeros((nTimeSlots * N), dtype=np.float32)
-
+        qrf.reset_rt()
         # Perform Analysis
         for m in xrange(nTimeSlots):
             xrec[m * N: (m + 1) * N] = qrf.PQMFSynthesis.synthesisqmf_realtime(ms[m, :], N)
@@ -692,7 +692,6 @@ class CepstralDecomposition:
             farray = farray/(fs)
 
         twoSqrt = np.sqrt(2.0)
-
         for indx in range(M.shape[0]):
             M[indx, :] = (np.cos(2.0 * np.pi * p * farray[indx]))
             M[indx, 1:] *= twoSqrt
@@ -726,7 +725,7 @@ class PsychoacousticModel:
         self.W_inv = self.bark2mX()
 
         # Non-linear superposition parameters
-        self._alpha = 0.8                                       # Exponent alpha
+        self._alpha = 0.65                                      # Exponent alpha
         self._maxb = 1./self.nfilts                             # Bark-band normalization
         self._fa = 1./(10 ** (14.5/20.) * 10 ** (12./20.))      # Tone masking approximation
         self._fb = 1./(10**(7.5/20.))                           # Upper slope of spreading function
@@ -998,7 +997,7 @@ class PsychoacousticModel:
         crclin = 10. ** (-crc/ 10.)
         return crclin, freqN, crc
 
-    def MOEar(self, correctionType = 'ELC'):
+    def MOEar(self, correctionType = 'MAF'):
         """ Method to approximate middle-outer ear transfer function for linearly scaled
             frequency representations, using an FIR approximation of order 600 taps.
             As appears in :
@@ -1108,11 +1107,10 @@ class PsychoacousticModel:
 
         # Outer/Middle Ear transfer function on the diagonal
         LTq = 10 ** (self.MOEar()/20.)
-        LTq = LTq * np.identity(len(LTq))
 
         # NMR computation
-        NMR = 10. * np.log10((1./mX.shape[0])*np.sum((imT * np.dot(Err, LTq))))
-
+        NMR = 10. * np.log10((1./mX.shape[0])*np.sum((imT * (Err*LTq))))
+        print(NMR)
         return NMR
 
 class WDODisjointness:
@@ -1226,30 +1224,30 @@ if __name__ == "__main__":
     #kSin = np.cos(np.arange(88200) * (1000.0 * (3.1415926 * 2.0) / 44100)) * 0.5
     #mix, fs = IO.AudioIO.audioRead('testFiles/cmente.mp3', mono = True)
     mix, fs = IO.AudioIO.wavRead('/user/HS203/m08926/Documents/DSD100/Mixtures/Test/037 - Speak Softly - Broken Man/mixture_seg.wav', mono = True)
+    #mix = mix[:7*fs]
     #mix = mix[44100*25:44100*25 + 882000] * 0.25
-    noise = np.random.uniform(-49., 49., len(mix))
+    # Approximate unity over the average magnitude of noise
+    noise = np.random.uniform(-50., 50., len(mix))
 
     # STFT/iSTFT Test
-    w = np.hanning(1025)
+    #w = np.hanning(1025)
     magX, phsX =  TimeFrequencyDecomposition.STFT(mix, w, 2048, 512)
     magN, phsN =  TimeFrequencyDecomposition.STFT(noise, w, 2048, 512)
-    # MDC(S)T Test
-    #yA = TimeFrequencyDecomposition.complex_analysis(mix[:, 0], 1024)
-    #yrek = TimeFrequencyDecomposition.complex_synthesis(yA, 1024)
 
-    #y = np.real(y)
     # Usage of psychoacoustic model
     # Initialize the model
-    pm = PsychoacousticModel(N = 2048, fs = 44100, nfilts = 64)
+    pm = PsychoacousticModel(N = 2048, fs = 44100, nfilts = 32)
+
+    #magX = TimeFrequencyDecomposition.pqmf_analysis(mix)
     # Acquire the response
-    LTeq = 10 ** (pm.MOEar()/20.)
+    #LTeq = 10 ** (pm.MOEar()/20.)
     # Compute masking threshold
     mt = pm.maskingThreshold(magX)
-    #mt_y = pm.maskingThreshold(np.abs(y))
 
+    # STFT/iSTFT Test
     sound = TimeFrequencyDecomposition.iSTFT(magX, phsX, 2048, 512)
-    sound2 = TimeFrequencyDecomposition.iSTFT(mt, phsN, 2048, 512)
+    noise = TimeFrequencyDecomposition.iSTFT(magN * mt, phsN, 2048, 512)
 
     # Test the NMR Function
-    NMR = pm.NMREval(sound, sound+sound2)
-    print(NMR)
+    NMR = pm.NMREval(sound, sound+noise)
+    IO.AudioIO.wavWrite(sound + noise, fs, 16, 'sound2.wav')
