@@ -22,9 +22,9 @@ class FrequencyMasking:
 		self._Out = []
 		self._alpha = alpha
 		self._method = method
-		self._iterations = 100
-		self._lr = 6e-7
-		self._inlr = 1e-7
+		self._iterations = 200
+		self._lr = 2e-2	#6e-7
+		self._iterthresh = 5
 		self._closs = 100.
 
 	def __call__(self, reverse = False):
@@ -267,37 +267,53 @@ class FrequencyMasking:
 		numElements = len(slist)
 		slist = np.asarray(slist)
 
-		alpha = np.array([1.5] * (numElements))	# Initialize an array of alpha values to be found.
+		alpha = np.array([self._alpha + 0.15] * (numElements))	# Initialize an array of alpha values to be found.
 		dloss = np.array([0.] * (numElements))  # Initialize an array of loss functions to be used.
+		lrs = np.array([self._lr] * (numElements))    # Initialize an array of learning rates to be applied to each source.
 
+		# Compute IS loss for initial exponents
+		Xhat = 0
 		for source in xrange(numElements):
-			print('Number of sources processed: ' + str(source))
-			for iter in xrange(self._iterations):
-				Xhat = slist[source, :, :] ** alpha[source] + np.sum(slist[np.arange(numElements)!=source], axis = 0)
-				closs = self._dIS(Xhat)
-				isloss = self._IS(Xhat)
+			Xhat += slist[source, :, :] ** self._alpha
+		initloss = self._IS(Xhat)
+		# Free up some memory
+		del Xhat
 
-				if iter > 0 :
-					if (dloss[source] - isloss) > 0:
-						alpha[source] -= self._lr * closs
-					elif (dloss[source] - isloss) <= 0:
-						alpha[source] += self._lr * closs
-						if isloss < 0.09:
-							break
-				else :
-					alpha[source] -= self._inlr * closs
+		# Begin of otpimization
+		isloss = []
+		for iter in xrange(self._iterations):
+			# Derivative with respect to a source spectrogram
+			for source in xrange(numElements):
+				Xhatd =  (slist[source, :, :]**alpha[source]) * np.log(slist[source, :, :] + self._eps) + \
+						np.sum(slist[np.arange(numElements)!=source], axis = 0)
 
-				# Clamp down values
-				alpha[:] = np.clip(alpha[:], a_min = 0.5, a_max = 2.)
-				# Store current loss
-				dloss[source] = isloss
+				dloss[source] = self._dIS(Xhatd)
 
-			print('Loss: ' + str(isloss) + ' with characteristic exponent: ' + str(alpha[source]))
-			# Update source list
-			slist[source, :, :] = slist[source, :, :] ** alpha[source]
+			alpha -= (lrs*dloss)
 
-		print(alpha)
-		self._mask = np.divide((slist[0, :, :] + self._eps), (np.sum(slist, axis = 0) + self._eps))
+			# Make sure of un-wanted values
+			alpha = np.clip(alpha, a_min = 0.5, a_max = 2.)
+
+			# Check IS Loss by computing Xhat
+			Xhat = 0
+			for source in xrange(numElements):
+				Xhat += slist[source, :, :] ** alpha[source]
+
+			isloss.append(self._IS(Xhat))
+			if (iter > 2):
+				if (isloss[-2] - isloss[-1] < 0) and (isloss[-2] <= initloss):
+					print('Local Minimum Found')
+					alpha += (lrs * dloss)
+					break
+
+			print('Loss: ' + str(isloss[-1]) + ' with characteristic exponent(s): ' + str(alpha))
+
+		# Evaluate Xhat for the mask update
+		Xhat = 0
+		for source in xrange(numElements):
+			Xhat += slist[source, :, :] ** alpha[source]
+
+		self._mask = np.divide((slist[0, :, :] ** alpha[0] + self._eps), (Xhat + self._eps))
 		self._closs = isloss
 
 	def applyMask(self):
@@ -335,8 +351,8 @@ class FrequencyMasking:
         Returns:
             dis   :     (float) Average Itakura-Saito distance
         """
-		r1 = (np.abs(self._mX) + self._eps) / (Xhat + self._eps)
-		lg = np.log(r1)
+		r1 = (np.abs(self._mX)**self._alpha + self._eps) / (np.abs(Xhat) + self._eps)
+		lg = np.log((np.abs(self._mX)**self._alpha + self._eps)) - np.log((np.abs(Xhat) + self._eps))
 		return np.mean(r1 - lg - 1.)
 
 	def _dIS(self, Xhat):
@@ -349,31 +365,9 @@ class FrequencyMasking:
         Returns:
             dis'  :     (float) Average of first derivative of Itakura-Saito distance.
         """
-		return np.mean(((Xhat + self._eps) ** (-2.)) * np.abs(Xhat - self._mX))
-
-	def _KL(self, Xhat):
-		""" Compute the Kullback-Leibler distance between the observed magnitude spectrum
-            and the estimated one.
-        Args:
-            mX    :   	(2D ndarray) Input Magnitude Spectrogram
-            Xhat  :     (2D ndarray) Estimated Magnitude Spectrogram
-        Returns:
-            dkl   :     (float) Average Kullback-Leibler distance
-        """
-		dkl = Xhat * np.log((Xhat + + self._eps) / (np.abs(self._mX) + self._eps))
-		return np.mean(dkl)
-
-	def _dKL(self, Xhat):
-		""" Compute the first derivative of Kullback-Leibler function. As appears in :
-			Cedric Fevotte and Jerome Idier, "Algorithms for nonnegative matrix factorization
-			with the beta-divergence", in CoRR, vol. abs/1010.1763, 2010.
-        Args:
-            mX    :   	(2D ndarray) Input Magnitude Spectrogram
-            Xhat  :     (2D ndarray) Estimated Magnitude Spectrogram
-        Returns:
-            dkl'  :     (float) Average of first derivative of Kullback-Leibler distance
-        """
-		return np.mean(((Xhat + self._eps) ** (-1.)) * (Xhat - np.abs(self._mX)))
+		# A simple gradient clipping to avoid large deviations
+		dis = np.clip(np.abs(Xhat + self._eps) ** (-2.), 0., Xhat.shape[1]*2. - 1) * (np.abs(Xhat) - np.abs(self._mX))
+		return np.abs(np.mean(dis))
 
 if __name__ == "__main__":
 
