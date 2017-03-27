@@ -23,9 +23,8 @@ class FrequencyMasking:
 		self._alpha = alpha
 		self._method = method
 		self._iterations = 200
-		self._lr = 2e-2	#6e-7
-		self._iterthresh = 5
-		self._closs = 100.
+		self._lr = 2e-3	#6e-7
+		self._lrdecay = self._lr/5.
 
 	def __call__(self, reverse = False):
 
@@ -249,45 +248,41 @@ class FrequencyMasking:
 		Theta = (self._pTarget - self._pY)
 		self._mask = 2./ (1. + np.exp(-np.multiply(np.divide(self._sTarget, self._eps + self._nResidual), np.cos(Theta)))) - 1.
 
-	def optAlpha(self):
+	def optAlpha(self, initloss):
 		"""
 			A simple gradiend descent method, to find optimum power-spectral density exponents (alpha)
 			for generalized wiener filtering.
 		Args:
-			sTarget:   (2D ndarray) Magnitude Spectrogram of the target component
+			sTarget  : (2D ndarray) Magnitude Spectrogram of the target component
 			nResidual: (2D ndarray) Magnitude Spectrogram of the residual component or a list
 									of 2D ndarrays which will be added together
+			initloss : (float)		Initial loss, for comparisson
 		Returns:
 			mask:      (2D ndarray) Array that contains time frequency gain values
 
 		"""
+		# Initialization of the parameters
 		# Put every source spectrogram into an array, given an input list.
 		slist = list(self._nResidual)
 		slist.insert(0, self._sTarget)
 		numElements = len(slist)
 		slist = np.asarray(slist)
 
-		alpha = np.array([self._alpha + 0.15] * (numElements))	# Initialize an array of alpha values to be found.
+		alpha = np.array([1.2] * (numElements))	# Initialize an array of alpha values to be found.
 		dloss = np.array([0.] * (numElements))  # Initialize an array of loss functions to be used.
 		lrs = np.array([self._lr] * (numElements))    # Initialize an array of learning rates to be applied to each source.
-
-		# Compute IS loss for initial exponents
-		Xhat = 0
-		for source in xrange(numElements):
-			Xhat += slist[source, :, :] ** self._alpha
-		initloss = self._IS(Xhat)
-		# Free up some memory
-		del Xhat
 
 		# Begin of otpimization
 		isloss = []
 		for iter in xrange(self._iterations):
-			# Derivative with respect to a source spectrogram
+			# The actual function of additive power spectrograms
+			Xhat = np.sum(np.power(slist, np.reshape(alpha, (numElements, 1, 1))), axis=0)
 			for source in xrange(numElements):
-				Xhatd =  (slist[source, :, :]**alpha[source]) * np.log(slist[source, :, :] + self._eps) + \
-						np.sum(slist[np.arange(numElements)!=source], axis = 0)
+				# Derivative with respect to the function of additive power spectrograms
+				dX = (slist[source, :, :]**alpha[source]) * np.log(slist[source, :, :] + self._eps)
 
-				dloss[source] = self._dIS(Xhatd)
+				# Chain rule between the above derivative and the IS derivative
+				dloss[source] = self._dIS(Xhat) * np.mean(dX)
 
 			alpha -= (lrs*dloss)
 
@@ -301,7 +296,7 @@ class FrequencyMasking:
 
 			isloss.append(self._IS(Xhat))
 			if (iter > 2):
-				if (isloss[-2] - isloss[-1] < 0) and (isloss[-2] <= initloss):
+				if (isloss[-2] - isloss[-1] < 0):
 					print('Local Minimum Found')
 					alpha += (lrs * dloss)
 					break
@@ -309,11 +304,7 @@ class FrequencyMasking:
 			print('Loss: ' + str(isloss[-1]) + ' with characteristic exponent(s): ' + str(alpha))
 
 		# Evaluate Xhat for the mask update
-		Xhat = 0
-		for source in xrange(numElements):
-			Xhat += slist[source, :, :] ** alpha[source]
-
-		self._mask = np.divide((slist[0, :, :] ** alpha[0] + self._eps), (Xhat + self._eps))
+		self._mask = np.divide((slist[0, :, :] ** alpha[0] + self._eps), (self._mX ** self._alpha + self._eps))
 		self._closs = isloss
 
 	def applyMask(self):
@@ -356,7 +347,7 @@ class FrequencyMasking:
 		return np.mean(r1 - lg - 1.)
 
 	def _dIS(self, Xhat):
-		""" Compute the first derivative of Itakura-Saito function. As appears in :
+		""" Computation of the first derivative of Itakura-Saito function. As appears in :
             Cedric Fevotte and Jerome Idier, "Algorithms for nonnegative matrix factorization
             with the beta-divergence", in CoRR, vol. abs/1010.1763, 2010.
         Args:
@@ -366,8 +357,8 @@ class FrequencyMasking:
             dis'  :     (float) Average of first derivative of Itakura-Saito distance.
         """
 		# A simple gradient clipping to avoid large deviations
-		dis = np.clip(np.abs(Xhat + self._eps) ** (-2.), 0., Xhat.shape[1]*2. - 1) * (np.abs(Xhat) - np.abs(self._mX))
-		return np.abs(np.mean(dis))
+		dis = (np.abs(Xhat + self._eps) ** (-2.)) * (np.abs(Xhat) - np.abs(self._mX)**self._alpha)
+		return (np.mean(dis))
 
 if __name__ == "__main__":
 
