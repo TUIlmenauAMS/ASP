@@ -725,7 +725,7 @@ class PsychoacousticModel:
         self.W_inv = self.bark2mX()
 
         # Non-linear superposition parameters
-        self._alpha = 0.65                                      # Exponent alpha
+        self._alpha = 0.9                                       # Exponent alpha
         self._maxb = 1./self.nfilts                             # Bark-band normalization
         self._fa = 1./(10 ** (14.5/20.) * 10 ** (12./20.))      # Tone masking approximation
         self._fb = 1./(10**(7.5/20.))                           # Upper slope of spreading function
@@ -997,7 +997,7 @@ class PsychoacousticModel:
         crclin = 10. ** (-crc/ 10.)
         return crclin, freqN, crc
 
-    def MOEar(self, correctionType = 'MAF'):
+    def MOEar(self, correctionType = 'ELC'):
         """ Method to approximate middle-outer ear transfer function for linearly scaled
             frequency representations, using an FIR approximation of order 600 taps.
             As appears in :
@@ -1109,7 +1109,7 @@ class PsychoacousticModel:
         LTq = 10 ** (self.MOEar()/20.)
 
         # NMR computation
-        NMR = 10. * np.log10((1./mX.shape[0])*np.sum((imT * (Err*LTq))))
+        NMR = 10. * np.log10((1./mX.shape[0]) * self._maxb * np.sum((imT * (Err*LTq))))
         print(NMR)
         return NMR
 
@@ -1222,21 +1222,20 @@ if __name__ == "__main__":
     np.random.seed(218)
     # Test
     #kSin = np.cos(np.arange(88200) * (1000.0 * (3.1415926 * 2.0) / 44100)) * 0.5
-    #mix, fs = IO.AudioIO.audioRead('testFiles/cmente.mp3', mono = True)
-    mix, fs = IO.AudioIO.wavRead('/user/HS203/m08926/Documents/DSD100/Mixtures/Test/037 - Speak Softly - Broken Man/mixture_seg.wav', mono = True)
-    #mix = mix[:7*fs]
+    mix, fs = IO.AudioIO.wavRead('testFiles/supreme_test.wav', mono = True)
+    mix = mix[:15*fs]
     #mix = mix[44100*25:44100*25 + 882000] * 0.25
     # Approximate unity over the average magnitude of noise
     noise = np.random.uniform(-50., 50., len(mix))
 
     # STFT/iSTFT Test
-    #w = np.hanning(1025)
+    w = np.hanning(1025)
     magX, phsX =  TimeFrequencyDecomposition.STFT(mix, w, 2048, 512)
     magN, phsN =  TimeFrequencyDecomposition.STFT(noise, w, 2048, 512)
 
     # Usage of psychoacoustic model
     # Initialize the model
-    pm = PsychoacousticModel(N = 2048, fs = 44100, nfilts = 32)
+    pm = PsychoacousticModel(N = 2048, fs = 44100, nfilts = 24)
 
     #magX = TimeFrequencyDecomposition.pqmf_analysis(mix)
     # Acquire the response
