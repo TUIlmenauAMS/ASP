@@ -56,7 +56,7 @@ class AudioIO:
 
 	@staticmethod
 	def audioRead(fileName, mono=False):
-		""" Function to load audio files such as *.mp3, *.au, *.wma & *.aiff.
+		""" Function to load audio files such as *.mp3, *.au, *.wma, *.m4a, *.x-wav & *.aiff.
 			It first converts them to .wav and reads them with the methods below.
 			Currently, it uses a static build of ffmpeg.
 
@@ -76,6 +76,8 @@ class AudioIO:
 		# Linux
 		if (platform == "linux") or (platform == "linux2"):
 			convDict = {
+				'm4a':[os.path.join(AudioIO.pathToffmpeg, 'ffmpeg_linux')
+					+ ' -i ' + fileName + ' ', -3],
 				'mp3':[os.path.join(AudioIO.pathToffmpeg, 'ffmpeg_linux')
 					+ ' -i ' + fileName + ' ', -3],
 				'au': [os.path.join(AudioIO.pathToffmpeg, 'ffmpeg_linux')
@@ -91,6 +93,8 @@ class AudioIO:
 		# MacOSX
 		elif (platform == "darwin"):
 			convDict = {
+				'm4a':[os.path.join(AudioIO.pathToffmpeg, 'ffmpeg_osx')
+					+ ' -i ' + fileName + ' ', -3],
 				'mp3':[os.path.join(AudioIO.pathToffmpeg, 'ffmpeg_osx')
 					+ ' -i ' + fileName + ' ', -3],
 				'au': [os.path.join(AudioIO.pathToffmpeg, 'ffmpeg_osx')
@@ -99,7 +103,7 @@ class AudioIO:
 					 + ' -i ' + fileName + ' ', -3],
 				'aiff': [os.path.join(AudioIO.pathToffmpeg, 'ffmpeg_osx')
 					 + ' -i ' + fileName + ' ', -4],
-				'wav': [os.path.join(AudioIO.pathToffmpeg, 'ffmpeg_linux')
+				'wav': [os.path.join(AudioIO.pathToffmpeg, 'ffmpeg_osx')
 						+ ' -i ' + fileName + ' ', -3]
 						}
 		# Add windows support!
@@ -147,6 +151,14 @@ class AudioIO:
 			samples, sampleRate = AudioIO.wavRead(modfileName, mono)
 			os.remove(modfileName)
 
+		elif fileName[convDict['m4a'][1]:] == 'm4a':
+			print(fileName[convDict['m4a'][1]:])
+			modfileName = os.path.join(os.path.abspath(fileName[:-4] + '_temp.wav'))
+			subprocess.call(convDict['m4a'][0] + modfileName, shell=True, stdout=AudioIO.FNULL,
+							stderr=subprocess.STDOUT)
+			samples, sampleRate = AudioIO.wavRead(modfileName, mono)
+			os.remove(modfileName)
+
 		else :
 			raise Exception('This format is not supported.')
 
@@ -158,23 +170,25 @@ class AudioIO:
 		format using ffmpeg.
         Args:
             samples: 	(ndarray / 2D ndarray) (floating point) sample vector
-                    		mono: DIM: nSamples
+                    		mono:   DIM: nSamples
                     		stereo: DIM: nSamples x nChannels
 
             fs: 		(int) Sample rate in Hz
             nBits: 		(int) Number of bits
-            audioFile: 	(string) WAV file name to write
+            audioFile: 	(string) File name to write
             format:		(string) Selected format
             				'mp3' 	: Writes to .mp3
             				'wma' 	: Writes to .wma
             				'wav' 	: Writes to .wav
             				'aiff'	: Writes to .aiff
             				'au'	: Writes to .au
+            				'm4a'   : Writes to .m4a
 		"""
 
 		# Linux
 		if (platform == "linux") or (platform == "linux2"):
 			convDict = {
+				'm4a':  [os.path.join(AudioIO.pathToffmpeg, 'ffmpeg_linux') + ' -i ', -3],
 				'mp3':  [os.path.join(AudioIO.pathToffmpeg, 'ffmpeg_linux') + ' -i ', -3],
 				'au':   [os.path.join(AudioIO.pathToffmpeg, 'ffmpeg_linux') + ' -i ', -2],
 				'wma':  [os.path.join(AudioIO.pathToffmpeg, 'ffmpeg_linux') + ' -i ', -3],
@@ -184,13 +198,13 @@ class AudioIO:
 		# MacOSX
 		elif (platform == "darwin"):
 			convDict = {
+				'm4a':  [os.path.join(AudioIO.pathToffmpeg, 'ffmpeg_osx') + ' -i ', -3],
 				'mp3':  [os.path.join(AudioIO.pathToffmpeg, 'ffmpeg_osx') + ' -i ', -3],
 				'au':   [os.path.join(AudioIO.pathToffmpeg, 'ffmpeg_osx') + ' -i ', -2],
 				'wma':  [os.path.join(AudioIO.pathToffmpeg, 'ffmpeg_osx') + ' -i ', -3],
 				'aiff': [os.path.join(AudioIO.pathToffmpeg, 'ffmpeg_osx') + ' -i ', -4]
 						}
 
-		# Add windows support!
 		else :
 			raise Exception('This OS is not supported.')
 
@@ -223,6 +237,13 @@ class AudioIO:
 			AudioIO.wavWrite(y, fs, nbits, prmfileName)
 			subprocess.call(convDict['au'][0] + prmfileName + ' ' + audioFile,
 							shell = True,  stdout=AudioIO.FNULL, stderr=subprocess.STDOUT)
+			os.remove(prmfileName)
+
+		elif (format == 'm4a'):
+			prmfileName = os.path.join(os.path.abspath(audioFile[:convDict['m4a'][1]] + 'wav'))
+			AudioIO.wavWrite(y, fs, nbits, prmfileName)
+			subprocess.call(convDict['m4a'][0] + prmfileName + ' -b:a 320k ' + audioFile,
+							shell = True, stdout=AudioIO.FNULL, stderr=subprocess.STDOUT)
 			os.remove(prmfileName)
 		else :
 			raise Exception('This format is not supported.')
