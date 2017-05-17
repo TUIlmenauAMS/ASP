@@ -103,7 +103,7 @@ class TimeFrequencyDecomposition:
         """ Short Time Fourier Transform analysis of a given real input signal,
         via the above DFT method.
         Args:
-            x   : 	(array)  Magnitude Spectrum
+            x   : 	(array)  Time-domain signal
             w   :   (array)  Desired windowing function
             N   :   (int)    FFT size
             hop :   (int)    Hop size
@@ -232,6 +232,74 @@ class TimeFrequencyDecomposition:
         y = np.delete(y, range(y.size-(3*hop + 1), y.size))
 
         return y
+
+    @staticmethod
+    def MCSTFT(x, w, N, hop):
+        """ Short Time Fourier Transform analysis of a given real input signal,
+        over multiple channels.
+        Args:
+            x   : 	(2D array)  Multichannel time-domain signal (nsamples x nchannels)
+            w   :   (array)     Desired windowing function
+            N   :   (int)       FFT size
+            hop :   (int)       Hop size
+        Returns:
+            sMx :   (3D ndarray) Stacked arrays of magnitude spectra
+            sPx :   (3D ndarray) Stacked arrays of phase spectra
+                                 Of the shape (Channels x Frequency-samples x Time-frames)
+        """
+        M = x.shape[1]      # Number of channels
+
+        # Analyse the first incoming channel to acquire the dimensions
+        mX, pX = TimeFrequencyDecomposition.STFT(x[:, 0], w, N, hop)
+        smX = np.zeros((M, mX.shape[1], mX.shape[0]), dtype = np.float32)
+        spX = np.zeros((M, pX.shape[1], pX.shape[0]), dtype = np.float32)
+        # Storing it to the actual return and free up some memory
+        smX[0, :, :] = mX.T
+        spX[0, :, :] = pX.T
+        del mX, pX
+
+        for channel in xrange(1, M):
+            mX, pX = TimeFrequencyDecomposition.STFT(x[:, channel], w, N, hop)
+            smX[channel, :, :] = mX.T
+            spX[channel, :, :] = pX.T
+
+        del mX, pX
+
+        return smX, spX
+
+    @staticmethod
+    def MCiSTFT(xmX, xpX, wsz, hop, smt = False):
+        """ Short Time Fourier Transform synthesis of given magnitude and phase spectra
+        over multiple channels.
+        Args:
+            xMx :   (3D ndarray) Stacked arrays of magnitude spectra
+            xPx :   (3D ndarray) Stacked arrays of phase spectra
+                                 Of the shape (Channels x Frequency samples x Time-frames)
+            wsz :   (int)        Synthesis Window size
+            hop :   (int)        Hop size
+            smt :   (bool)       Whether or not use a post-processing step in time domain
+                                 signal recovery, using synthesis windows
+        Returns :
+            y   :   (2D array)   Synthesised time-domain real signal of the shape (nsamples x nchannels)
+        """
+        M = xmX.shape[0]      # Number of channels
+        F = xmX.shape[1]      # Number of frequency samples
+        T = xmX.shape[2]      # Number of time-frames
+
+        # Synthesize the first incoming channel to acquire the dimensions
+        y = TimeFrequencyDecomposition.iSTFT(xmX[0, :, :].T, xpX[0, :, :].T, wsz, hop, smt)
+        yout = np.zeros((len(y), M), dtype = np.float32)
+        # Storing it to the actual return and free up some memory
+        yout[:, 0] = y
+        del y
+
+        for channel in xrange(1, M):
+            y = TimeFrequencyDecomposition.iSTFT(xmX[channel, :, :].T, xpX[channel, :, :].T, wsz, hop, smt)
+            yout[:, channel] = y
+
+        del y
+
+        return yout
 
     @staticmethod
     def nuttall4b(M, sym=False):
@@ -1220,6 +1288,7 @@ if __name__ == "__main__":
     import IOMethods as IO
     import matplotlib.pyplot as plt
     np.random.seed(218)
+
     # Test
     #kSin = np.cos(np.arange(88200) * (1000.0 * (3.1415926 * 2.0) / 44100)) * 0.5
     mix, fs = IO.AudioIO.wavRead('testFiles/supreme_test.wav', mono = True)
@@ -1248,5 +1317,5 @@ if __name__ == "__main__":
     noise = TimeFrequencyDecomposition.iSTFT(magN * mt, phsN, 2048, 512)
 
     # Test the NMR Function
-    NMR = pm.NMREval(sound, sound+noise)
-    IO.AudioIO.wavWrite(sound + noise, fs, 16, 'sound2.wav')
+    #NMR = pm.NMREval(sound, sound+noise)
+    #IO.AudioIO.wavWrite(sound + noise, fs, 16, 'sound2.wav')
