@@ -5,7 +5,6 @@ __copyright__ = 'MacSeNet'
 import numpy as np
 from scipy.fftpack import fft, ifft
 from TFMethods import TimeFrequencyDecomposition as TF
-realmin = np.finfo(np.double).tiny
 
 class FrequencyMasking:
 	"""Class containing various time-frequency masking methods, for processing Time-Frequency representations.
@@ -23,8 +22,7 @@ class FrequencyMasking:
 		self._alpha = alpha
 		self._method = method
 		self._iterations = 200
-		self._lr = 2e-3	#6e-7
-		self._lrdecay = self._lr/5.
+		self._lr = 2e-3
 
 	def __call__(self, reverse = False):
 
@@ -88,6 +86,10 @@ class FrequencyMasking:
 			else :
 				FrequencyMasking.applyReverseMask(self)
 
+		elif (self._method == 'MWF'):
+			print('Multichannel Wiener Filtering')
+			FrequencyMasking.MWF(self)
+
 		return self._Out
 
 	def IRM(self):
@@ -109,7 +111,7 @@ class FrequencyMasking:
 	def IAM(self):
 		"""
 			Computation of Ideal Amplitude Mask. As appears in :
-			H Erdogan, John R. Hershey, Shinji Watanabe, and Jonathan Le Roux,
+			H. Erdogan, J. R. Hershey, S. Watanabe, and J. Le Roux,
 	   		"Phase-sensitive and recognition-boosted speech separation using deep recurrent neural networks,"
 	   		in ICASSP 2015, Brisbane, April, 2015.
 		Args:
@@ -125,7 +127,10 @@ class FrequencyMasking:
 
 	def ExpM(self):
 		"""
-			Computation of exponential mask.
+			Approximate a signal via element-wise exponentiation. As appears in :
+			S.I. Mimilakis, K. Drossos, T. Virtanen, and G. Schuller,
+			"Deep Neural Networks for Dynamic Range Compression in Mastering Applications,"
+			in proc. of the 140th Audio Engineering Society Convention, Paris, 2016.
 		Args:
 			sTarget:   (2D ndarray) Magnitude Spectrogram of the target component
 			nResidual: (2D ndarray) Magnitude Spectrogram of the residual component
@@ -237,8 +242,8 @@ class FrequencyMasking:
 		Args:
 			mTarget:   (2D ndarray) Magnitude Spectrogram of the target component
 			pTarget:   (2D ndarray) Phase Spectrogram of the output component
-			mY:        (2D ndarray) Magnitude Spectrogram of the output component
-			pY:        (2D ndarray) Phase Spectrogram of the output component
+			mY:        (2D ndarray) Magnitude Spectrogram of the residual component
+			pY:        (2D ndarray) Phase Spectrogram of the residual component
 		Returns:
 			mask:      (2D ndarray) Array that contains time frequency gain values
 
@@ -307,6 +312,55 @@ class FrequencyMasking:
 		self._mask = np.divide((slist[0, :, :] ** alpha[0] + self._eps), (self._mX ** self._alpha + self._eps))
 		self._closs = isloss
 
+	def MWF(self):
+		""" Multi-channel Wiener filtering as appears in:
+		I. Cohen, J. Benesty, and S. Gannot, Speech Processing in Modern
+		Communication, Springer, Berlin, Heidelberg, 2010, Chapter 9.
+		Args:
+			mTarget:   (3D ndarray) Magnitude Spectrogram of the target component
+			mY:        (3D ndarray) Magnitude Spectrogram of the output component
+								    (M channels x F frequency samples x T time-frames).
+		Returns:
+			_Out:      (3D ndarray) Array that contains the estimated source.
+		"""
+		# Parameter for the update
+		flambda = 0.99								           # Forgetting Factor
+
+		cX = self._sTarget ** self._alpha
+		cN = self._nResidual ** self._alpha
+
+		M = self._mX.shape[0]  									# Number of channels
+		gF = 1./M        										# Gain factor
+		eM = cX.shape[0]										# Number of estimated channels
+		F = cX.shape[1]											# Number of frequency samples
+		T = cX.shape[2]											# Number of time-frames
+		fout = np.zeros((M,F,T), dtype = np.float32)			# Initializing output
+		I = np.eye(M)											# Identity matrix
+
+		# Initialization of covariance matrices
+		Rxx = np.repeat(np.reshape(I, (M,M,1)), F, axis = -1)
+		Rnn = np.repeat(np.reshape(I, (M,M,1)), F, axis = -1)
+
+		# Recursive updates
+		for t in xrange(T):
+			for f in xrange(F):
+				if eM == 1:
+					Rxx[:, :, f] = flambda * Rxx[:, :, f] + (1. - flambda) * (cX[:, f, t])
+					Rnn[:, :, f] = flambda * Rnn[:, :, f] + (1. - flambda) * (cN[:, f, t])
+				else:
+					Rxx[:, :, f] = (np.dot(cX[:, f:f+1, t], cX[:, f:f+1, t].T))/np.sum(cX[:,f,t], axis = 0)
+					Rnn[:, :, f] = (np.dot(cN[:, f:f+1, t], cN[:, f:f+1, t].T))/np.sum(cN[:,f,t], axis = 0)
+
+				inv = np.dot(np.linalg.pinv(Rnn[:, :, f]), (Rnn[:, :, f] + Rxx[:, :, f]))
+				if eM == 1:
+					Wf = ((inv - I)/( (cN[:,f,t] + cX[:, f, t] + 1e-16)/(cX[:,f,t] + 1e-16) + np.trace(inv) * gF))
+				else :
+					Wf = ((inv - I)/(gF * np.trace(inv)))
+
+				fout[:, f, t] = np.dot(Wf.T, self._mX[:, f, t])
+
+		self._Out = np.abs(fout)
+
 	def applyMask(self):
 		""" Compute the filtered output spectrogram.
 		Args:
@@ -356,7 +410,6 @@ class FrequencyMasking:
         Returns:
             dis'  :     (float) Average of first derivative of Itakura-Saito distance.
         """
-		# A simple gradient clipping to avoid large deviations
 		dis = (np.abs(Xhat + self._eps) ** (-2.)) * (np.abs(Xhat) - np.abs(self._mX)**self._alpha)
 		return (np.mean(dis))
 
