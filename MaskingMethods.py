@@ -22,7 +22,9 @@ class FrequencyMasking:
 		self._alpha = alpha
 		self._method = method
 		self._iterations = 200
-		self._lr = 2e-3
+		self._lr = 3e-3#2e-3
+		self._hetaplus = 1.2
+		self._hetaminus = 0.5
 
 	def __call__(self, reverse = False):
 
@@ -255,8 +257,8 @@ class FrequencyMasking:
 
 	def optAlpha(self, initloss):
 		"""
-			A simple gradiend descent method, to find optimum power-spectral density exponents (alpha)
-			for generalized wiener filtering.
+			A simple gradiend descent method using the RProp algorithm,
+			for finding optimum power-spectral density exponents (alpha) for generalized wiener filtering.
 		Args:
 			sTarget  : (2D ndarray) Magnitude Spectrogram of the target component
 			nResidual: (2D ndarray) Magnitude Spectrogram of the residual component or a list
@@ -273,8 +275,8 @@ class FrequencyMasking:
 		numElements = len(slist)
 		slist = np.asarray(slist)
 
-		alpha = np.array([1.2] * (numElements))	# Initialize an array of alpha values to be found.
-		dloss = np.array([0.] * (numElements))  # Initialize an array of loss functions to be used.
+		alpha = np.array([1.15] * (numElements))	  # Initialize an array of alpha values to be found.
+		dloss = np.array([0.] * (numElements))  	  # Initialize an array of loss functions to be used.
 		lrs = np.array([self._lr] * (numElements))    # Initialize an array of learning rates to be applied to each source.
 
 		# Begin of otpimization
@@ -291,7 +293,7 @@ class FrequencyMasking:
 
 			alpha -= (lrs*dloss)
 
-			# Make sure of un-wanted values
+			# Make sure the initial alpha are inside reasonable values
 			alpha = np.clip(alpha, a_min = 0.5, a_max = 2.)
 
 			# Check IS Loss by computing Xhat
@@ -301,16 +303,25 @@ class FrequencyMasking:
 
 			isloss.append(self._IS(Xhat))
 			if (iter > 2):
+				# Apply RProp
+				if (isloss[-2] - isloss[-1] > 0):
+					lrs *= self._hetaplus
+
 				if (isloss[-2] - isloss[-1] < 0):
-					print('Local Minimum Found')
-					alpha += (lrs * dloss)
-					break
+					lrs *= self._hetaminus
+
+				if (iter > 4):
+					if (np.abs(isloss[-2] - isloss[-1]) < 1e-4 and np.abs(isloss[-3] - isloss[-2]) < 1e-4):
+						print('Local Minimum Found')
+						print('Final Loss: ' + str(isloss[-1]) + ' with characteristic exponent(s): ' + str(alpha))
+						break
 
 			print('Loss: ' + str(isloss[-1]) + ' with characteristic exponent(s): ' + str(alpha))
 
 		# Evaluate Xhat for the mask update
 		self._mask = np.divide((slist[0, :, :] ** alpha[0] + self._eps), (self._mX ** self._alpha + self._eps))
-		self._closs = isloss
+		self._closs = isloss[-1]
+		self._alpha = alpha
 
 	def MWF(self):
 		""" Multi-channel Wiener filtering as appears in:
